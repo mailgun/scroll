@@ -1,4 +1,4 @@
 scroll
 ======
 
-Scroll is a library that Mailgun's Go HTTP services sitting behind vulcand use to register themselves in etcd.
+Scroll is a lightweight library for building Go HTTP services at Mailgun.

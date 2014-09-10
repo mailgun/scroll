@@ -8,47 +8,49 @@ import (
 )
 
 const (
-	EndpointKey = "vulcand/upstreams/%v/endpoints/%v"
-	LocationKey = "vulcand/hosts/%v/locations/%v"
+	endpointKey = "vulcand/upstreams/%v/endpoints/%v"
+	locationKey = "vulcand/hosts/%v/locations/%v"
 
-	EndpointTTL = 60
+	// If vulcand registration is enabled, the app will be re-registering itself every
+	// this amount of seconds.
+	endpointTTL = 60 // seconds
 )
 
-type Registry struct {
+type registry struct {
 	etcdClient *etcd.Client
 }
 
-type Endpoint struct {
+type endpoint struct {
 	upstream string
 	host     string
 	port     int
 }
 
-type Location struct {
+type location struct {
 	apiHost  string
 	methods  []string
 	path     string
 	upstream string
 }
 
-func NewRegistry() *Registry {
-	return &Registry{
+func newRegistry() *registry {
+	return &registry{
 		etcdClient: etcd.NewClient([]string{"http://127.0.0.1:4001"}),
 	}
 }
 
-func (r *Registry) RegisterEndpoint(e *Endpoint) error {
-	key := fmt.Sprintf(EndpointKey, e.GetUpstream(), e.GetID())
+func (r *registry) RegisterEndpoint(e *endpoint) error {
+	key := fmt.Sprintf(endpointKey, e.GetUpstream(), e.GetID())
 
-	if _, err := r.etcdClient.Set(key, e.GetEndpoint(), EndpointTTL); err != nil {
+	if _, err := r.etcdClient.Set(key, e.GetEndpoint(), endpointTTL); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (r *Registry) RegisterLocation(l *Location) error {
-	key := fmt.Sprintf(LocationKey, l.GetAPIHost(), l.GetID())
+func (r *registry) RegisterLocation(l *Location) error {
+	key := fmt.Sprintf(locationKey, l.GetAPIHost(), l.GetID())
 
 	pathKey := fmt.Sprintf("%v/path", key)
 	if _, err := r.etcdClient.Set(pathKey, l.GetPath(), 0); err != nil {
@@ -63,33 +65,33 @@ func (r *Registry) RegisterLocation(l *Location) error {
 	return nil
 }
 
-func NewEndpoint(upstream, host string, port int) *Endpoint {
-	return &Endpoint{
+func newEndpoint(upstream, host string, port int) *endpoint {
+	return &endpoint{
 		upstream: upstream,
 		host:     host,
 		port:     port,
 	}
 }
 
-func (e *Endpoint) GetID() string {
+func (e *endpoint) GetID() string {
 	return fmt.Sprintf("%v_%v", e.host, e.port)
 }
 
-func (e *Endpoint) GetUpstream() string {
+func (e *endpoint) GetUpstream() string {
 	return e.upstream
 }
 
-func (e *Endpoint) GetEndpoint() string {
+func (e *endpoint) GetEndpoint() string {
 	return fmt.Sprintf("http://%v:%v", e.host, e.port)
 }
 
-func (e *Endpoint) String() string {
+func (e *endpoint) String() string {
 	return fmt.Sprintf("id [%v], upstream [%v], endpoint [%v]",
 		e.GetID(), e.GetUpstream(), e.GetEndpoint())
 }
 
-func NewLocation(apiHost string, methods []string, path, upstream string) *Location {
-	return &Location{
+func newLocation(apiHost string, methods []string, path, upstream string) *location {
+	return &location{
 		apiHost:  apiHost,
 		methods:  methods,
 		path:     convertPath(path),
@@ -97,28 +99,31 @@ func NewLocation(apiHost string, methods []string, path, upstream string) *Locat
 	}
 }
 
-func (l *Location) GetID() string {
+func (l *location) GetID() string {
 	return strings.Replace(fmt.Sprintf("%v%v", strings.Join(l.methods, "."), l.path), "/", ".", -1)
 }
 
-func (l *Location) GetAPIHost() string {
+func (l *location) GetAPIHost() string {
 	return l.apiHost
 }
 
-func (l *Location) GetPath() string {
+func (l *location) GetPath() string {
 	methods := strings.Join(l.methods, `", "`)
 	return fmt.Sprintf(`TrieRoute("%v", "%v")`, methods, l.path)
 }
 
-func (l *Location) GetUpstream() string {
+func (l *location) GetUpstream() string {
 	return l.upstream
 }
 
-func (l *Location) String() string {
+func (l *location) String() string {
 	return fmt.Sprintf("id [%v], API host [%v], path [%v], upstream [%v]",
 		l.GetID(), l.GetAPIHost(), l.GetPath(), l.GetUpstream())
 }
 
+// Convert router path to the format understood by vulcand.
+//
+// Effectively, just replaces curly brackets with angle brackets.
 func convertPath(path string) string {
 	return strings.Replace(strings.Replace(path, "{", "<", -1), "}", ">", -1)
 }

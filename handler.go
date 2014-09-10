@@ -11,18 +11,46 @@ import (
 	"github.com/mailgun/gotools-log"
 )
 
+// Response objects that apps' handlers are advised to return.
+//
+// Allows to easily return JSON-marshallable responses, e.g.:
+//
+//  Response{"message": "OK"}
 type Response map[string]interface{}
 
+// Represents handler's config.
 type HandlerConfig struct {
-	Methods    []string
-	Path       string
-	Headers    []string
+	// List of HTTP methods the handler should match.
+	Methods []string
+
+	// Path the handler should match.
+	Path string
+
+	// Key/value pairs of specific HTTP headers the handler should match (e.g. Content-Type).
+	Headers []string
+
+	// Unique identifier used when emitting performance metrics for the handler.
 	MetricName string
-	Register   bool
+
+	// Whether to register the handler in vulcand.
+	Register bool
 }
 
+// Defines the signature of a handler function that can be registered by an app.
+//
+// The 3rd parameter is a map of variables extracted from the request path, e.g. if a request path was:
+//  /resources/{resourceID}
+// and the request was made to:
+//  /resources/1
+// then the map will contain the resource ID value:
+//  {"resourceID": 1}
+//
+// A handler function should return a JSON marshallable object, e.g. Response.
 type HandlerFunc func(http.ResponseWriter, *http.Request, map[string]string) (interface{}, error)
 
+// Wraps the provided handler function encapsulating boilerplate code so handlers do not have to
+// implement it themselves: parsing a request's form, formatting a proper JSON response, emitting
+// the request stats, etc.
 func MakeHandler(app *App, fn HandlerFunc, config *HandlerConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseMultipartForm(0); err != nil {
@@ -44,14 +72,18 @@ func MakeHandler(app *App, fn HandlerFunc, config *HandlerConfig) http.HandlerFu
 		log.Infof("Request completed: status [%v] method [%v] path [%v] form [%v] time [%v] error [%v]",
 			status, r.Method, r.URL, r.Form, elapsedTime, err)
 
-		app.Stats.TrackRequest(config.MetricName, status, elapsedTime)
+		app.stats.TrackRequest(config.MetricName, status, elapsedTime)
 
 		Reply(w, response, status)
 	}
 }
 
+// Defines a signature of a handler function, just like HandlerFunc.
+//
+// In addition to the HandlerFunc a request's body is passed into this function as a 4th parameter.
 type HandlerWithBodyFunc func(http.ResponseWriter, *http.Request, map[string]string, []byte) (interface{}, error)
 
+// Make a handler out of HandlerWithBodyFunc, just like regular MakeHandler function.
 func MakeHandlerWithBody(app *App, fn HandlerWithBodyFunc, config *HandlerConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := r.ParseMultipartForm(0); err != nil {
@@ -79,7 +111,7 @@ func MakeHandlerWithBody(app *App, fn HandlerWithBodyFunc, config *HandlerConfig
 		log.Infof("Request completed: status [%v] method [%v] path [%v] form [%v] time [%v] error [%v]",
 			status, r.Method, r.URL, r.Form, elapsedTime, err)
 
-		app.Stats.TrackRequest(config.MetricName, status, elapsedTime)
+		app.stats.TrackRequest(config.MetricName, status, elapsedTime)
 
 		Reply(w, response, status)
 	}
@@ -103,6 +135,7 @@ func Reply(w http.ResponseWriter, response interface{}, status int) {
 	w.Write(marshalledResponse)
 }
 
+// Helper that replies with the 500 code and happened error message.
 func ReplyInternalError(w http.ResponseWriter, message string) {
 	log.Errorf("Internal server error: %v", message)
 	Reply(w, Response{"message": message}, http.StatusInternalServerError)

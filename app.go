@@ -14,42 +14,64 @@ import (
 )
 
 const (
+	// Suggested result set limit for APIs that may return many entries (e.g. paging).
 	DefaultLimit int = 100
-	MaxLimit     int = 10000
+
+	// Suggested max allowed result set limit for APIs that may return many entries (e.g. paging).
+	MaxLimit int = 10000
+
+	// Suggested max allowed amount of entries that batch APIs can accept (e.g. batch uploads).
 	MaxBatchSize int = 1000
 )
 
+// Represents an app.
 type App struct {
 	config   *AppConfig
 	router   *mux.Router
-	registry *Registry
-
-	Stats *AppStats
+	registry *registry
+	stats    *AppStats
 }
 
+// Represents a configuration object an app is created with.
 type AppConfig struct {
-	Name     string
-	Host     string
-	Port     int
-	APIHost  string
+	// name of the app being created
+	Name string
+
+	// host the app is intended to bind to
+	Host string
+
+	// port the app is going to listen on
+	Port int
+
+	// hostname of the public API entrypoint used for vulcand registration
+	APIHost string
+
+	// whether to register the app's endpoint and handlers in vulcand
 	Register bool
-	Metrics  metrics.Metrics
+
+	// metrics service user for emitting the app's real-time metrics
+	Metrics metrics.Metrics
 }
 
+// Create a new app.
 func NewAppWithConfig(config *AppConfig) *App {
-	var registry *Registry
+	var registry *registry
 	if config.Register != false {
-		registry = NewRegistry()
+		registry = newRegistry()
 	}
 
 	return &App{
 		config:   config,
 		router:   mux.NewRouter(),
 		registry: registry,
-		Stats:    NewAppStats(config.Metrics),
+		stats:    newAppStats(config.Metrics),
 	}
 }
 
+// Register a handler.
+//
+// If vulcand registration is enabled in the both app config and handler config,
+// the handler will be registered in the local etcd instance.
 func (app *App) AddHandler(fn HandlerFunc, config *HandlerConfig) {
 	handler := MakeHandler(app, fn, config)
 
@@ -63,6 +85,10 @@ func (app *App) AddHandler(fn HandlerFunc, config *HandlerConfig) {
 	}
 }
 
+// Register a handler that will have a request body passed as an additional argument.
+//
+// If vulcand registration is enabled in the both app config and handler config,
+// the handler will be registered in the local etcd instance.
 func (app *App) AddHandlerWithBody(fn HandlerWithBodyFunc, config *HandlerConfig) {
 	handler := MakeHandlerWithBody(app, fn, config)
 
@@ -76,6 +102,13 @@ func (app *App) AddHandlerWithBody(fn HandlerWithBodyFunc, config *HandlerConfig
 	}
 }
 
+// Start the app on the configured host/port.
+//
+// If vulcand registration is enabled in the app config, starts a goroutine that
+// will be registering the app's endpoint once every minute in the local etcd
+// instance.
+//
+// Supports graceful shutdown on 'kill' and 'int' signals.
 func (app *App) Run() error {
 	http.Handle("/", app.router)
 
@@ -100,6 +133,7 @@ func (app *App) Run() error {
 	return manners.ListenAndServe(fmt.Sprintf("%v:%v", app.config.Host, app.config.Port), nil)
 }
 
+// Helper function to register the app's endpoint in vulcand.
 func (app *App) registerEndpoint() error {
 	endpoint := NewEndpoint(app.config.Name, app.config.Host, app.config.Port)
 
@@ -112,6 +146,7 @@ func (app *App) registerEndpoint() error {
 	return nil
 }
 
+// Helper function to register handlers in vulcand.
 func (app *App) registerLocation(methods []string, path string) error {
 	location := NewLocation(app.config.APIHost, methods, path, app.config.Name)
 
