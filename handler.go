@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -53,7 +54,7 @@ type HandlerFunc func(http.ResponseWriter, *http.Request, map[string]string) (in
 // the request stats, etc.
 func MakeHandler(app *App, fn HandlerFunc, config *HandlerConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if err := r.ParseMultipartForm(0); err != nil {
+		if err := parseForm(r); err != nil {
 			ReplyInternalError(w, fmt.Sprintf("Failed to parse request form: %v", err))
 			return
 		}
@@ -86,7 +87,7 @@ type HandlerWithBodyFunc func(http.ResponseWriter, *http.Request, map[string]str
 // Make a handler out of HandlerWithBodyFunc, just like regular MakeHandler function.
 func MakeHandlerWithBody(app *App, fn HandlerWithBodyFunc, config *HandlerConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if err := r.ParseMultipartForm(0); err != nil {
+		if err := parseForm(r); err != nil {
 			ReplyInternalError(w, fmt.Sprintf("Failed to parse request form: %v", err))
 			return
 		}
@@ -139,4 +140,19 @@ func Reply(w http.ResponseWriter, response interface{}, status int) {
 func ReplyInternalError(w http.ResponseWriter, message string) {
 	log.Errorf("Internal server error: %v", message)
 	Reply(w, Response{"message": message}, http.StatusInternalServerError)
+}
+
+// Parse the request data based on its content type.
+func parseForm(r *http.Request) error {
+	if isMultipart(r) == true {
+		return r.ParseMultipartForm(0)
+	} else {
+		return r.ParseForm()
+	}
+}
+
+// Determine whether the request is multipart/form-data or not.
+func isMultipart(r *http.Request) bool {
+	contentType := r.Header.Get("Content-Type")
+	return strings.HasPrefix(contentType, "multipart/form-data")
 }

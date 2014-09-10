@@ -49,7 +49,7 @@ func (r *registry) RegisterEndpoint(e *endpoint) error {
 	return nil
 }
 
-func (r *registry) RegisterLocation(l *Location) error {
+func (r *registry) RegisterLocation(l *location) error {
 	key := fmt.Sprintf(locationKey, l.GetAPIHost(), l.GetID())
 
 	pathKey := fmt.Sprintf("%v/path", key)

@@ -29,7 +29,7 @@ type App struct {
 	config   *AppConfig
 	router   *mux.Router
 	registry *registry
-	stats    *AppStats
+	stats    *appStats
 }
 
 // Represents a configuration object an app is created with.
@@ -49,12 +49,12 @@ type AppConfig struct {
 	// whether to register the app's endpoint and handlers in vulcand
 	Register bool
 
-	// metrics service user for emitting the app's real-time metrics
+	// metrics service used for emitting the app's real-time metrics
 	Metrics metrics.Metrics
 }
 
 // Create a new app.
-func NewAppWithConfig(config *AppConfig) *App {
+func NewApp(config *AppConfig) *App {
 	var registry *registry
 	if config.Register != false {
 		registry = newRegistry()
@@ -135,7 +135,7 @@ func (app *App) Run() error {
 
 // Helper function to register the app's endpoint in vulcand.
 func (app *App) registerEndpoint() error {
-	endpoint := NewEndpoint(app.config.Name, app.config.Host, app.config.Port)
+	endpoint := newEndpoint(app.config.Name, app.config.Host, app.config.Port)
 
 	if err := app.registry.RegisterEndpoint(endpoint); err != nil {
 		return err
@@ -148,7 +148,7 @@ func (app *App) registerEndpoint() error {
 
 // Helper function to register handlers in vulcand.
 func (app *App) registerLocation(methods []string, path string) error {
-	location := NewLocation(app.config.APIHost, methods, path, app.config.Name)
+	location := newLocation(app.config.APIHost, methods, path, app.config.Name)
 
 	if err := app.registry.RegisterLocation(location); err != nil {
 		return err

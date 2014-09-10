@@ -17,6 +17,10 @@ func newAppStats(metrics metrics.Metrics) *appStats {
 }
 
 func (s *appStats) TrackRequest(metricID string, status int, time time.Duration) {
+	if s.metrics == nil {
+		return
+	}
+
 	s.TrackRequestTime(metricID, time)
 	s.TrackTotalRequests(metricID)
 	if status != http.StatusOK {
