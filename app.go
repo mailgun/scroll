@@ -43,6 +43,9 @@ type AppConfig struct {
 	// port the app is going to listen on
 	Port int
 
+	// optional router to use
+	Router *mux.Router
+
 	// hostname of the public API entrypoint used for vulcand registration
 	APIHost string
 
@@ -60,9 +63,14 @@ func NewApp(config *AppConfig) *App {
 		registry = newRegistry()
 	}
 
+	router := config.Router
+	if router == nil {
+		router = mux.NewRouter()
+	}
+
 	return &App{
 		config:   config,
-		router:   mux.NewRouter(),
+		router:   router,
 		registry: registry,
 		stats:    newAppStats(config.Metrics),
 	}
