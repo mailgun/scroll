@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/mailgun/gotools-log"
+	"github.com/mailgun/log"
 	"github.com/mailgun/manners"
 	"github.com/mailgun/metrics"
 )

@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	log "github.com/mailgun/gotools-log"
+	"github.com/mailgun/log"
 )
 
 // Retrieve a POST request field as a string.

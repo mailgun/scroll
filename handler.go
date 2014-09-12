@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/mailgun/gotools-log"
+	"github.com/mailgun/log"
 )
 
 // Response objects that apps' handlers are advised to return.
