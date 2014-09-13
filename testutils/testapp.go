@@ -27,5 +27,5 @@ func NewTestApp() *TestApp {
 
 	testServer := httptest.NewServer(router)
 
-	return &TestApp{scroll.NewApp(config), testServer}
+	return &TestApp{RestHelper{}, scroll.NewApp(config), testServer}
 }
