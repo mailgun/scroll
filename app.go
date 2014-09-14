@@ -68,6 +68,11 @@ func NewApp(config *AppConfig) *App {
 	}
 }
 
+// SetNotFoundHandler sets the handler for the case when URL can not be matched by the router
+func (app *App) SetNotFoundHandler(fn http.HandlerFunc) {
+	app.router.NotFoundHandler = fn
+}
+
 // Register a handler.
 //
 // If vulcand registration is enabled in the both app config and handler config,
