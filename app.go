@@ -68,6 +68,11 @@ func NewApp(config *AppConfig) *App {
 	}
 }
 
+// GetHandler returns http compatible Handler interface
+func (a *App) GetHandler() http.Handler {
+	return a.router
+}
+
 // SetNotFoundHandler sets the handler for the case when URL can not be matched by the router
 func (app *App) SetNotFoundHandler(fn http.HandlerFunc) {
 	app.router.NotFoundHandler = fn

@@ -136,6 +136,12 @@ func Reply(w http.ResponseWriter, response interface{}, status int) {
 	w.Write(marshalledResponse)
 }
 
+// ReplyError converts registered error into HTTP response code and writes it back
+func ReplyError(w http.ResponseWriter, err error) {
+	response, status := responseAndStatusFor(err)
+	Reply(w, response, status)
+}
+
 // Helper that replies with the 500 code and happened error message.
 func ReplyInternalError(w http.ResponseWriter, message string) {
 	log.Errorf("Internal server error: %v", message)
