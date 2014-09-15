@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/coreos/go-etcd/etcd"
+	"github.com/mailgun/go-etcd/etcd"
 )
 
 const (
