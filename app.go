@@ -81,16 +81,6 @@ func NewAppWithConfig(config AppConfig) *App {
 	}
 }
 
-// GetHandler returns HTTP compatible Handler interface.
-func (app *App) GetHandler() http.Handler {
-	return app.router
-}
-
-// SetNotFoundHandler sets the handler for the case when URL can not be matched by the router.
-func (app *App) SetNotFoundHandler(fn http.HandlerFunc) {
-	app.router.NotFoundHandler = fn
-}
-
 // Register a handler function.
 //
 // If vulcand registration is enabled in the both app config and handler spec,
@@ -121,6 +111,16 @@ func (app *App) AddHandler(spec Spec) error {
 	}
 
 	return nil
+}
+
+// GetHandler returns HTTP compatible Handler interface.
+func (app *App) GetHandler() http.Handler {
+	return app.router
+}
+
+// SetNotFoundHandler sets the handler for the case when URL can not be matched by the router.
+func (app *App) SetNotFoundHandler(fn http.HandlerFunc) {
+	app.router.NotFoundHandler = fn
 }
 
 // Start the app on the configured host/port.
