@@ -50,7 +50,7 @@ type AppConfig struct {
 	Register bool
 
 	// metrics service used for emitting the app's real-time metrics
-	Metrics metrics.Metrics
+	Client metrics.Client
 }
 
 // Create a new app.
@@ -64,7 +64,7 @@ func NewApp(config *AppConfig) *App {
 		config:   config,
 		router:   mux.NewRouter(),
 		registry: registry,
-		stats:    newAppStats(config.Metrics),
+		stats:    newAppStats(config.Client),
 	}
 }
 
