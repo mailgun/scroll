@@ -158,30 +158,29 @@ func (app *App) Run() error {
 }
 
 // Helper function to register the app's endpoint in vulcand.
-func (app *App) registerEndpoint() error {
+func (app *App) registerEndpoint() {
 	endpoint, err := registry.NewEndpoint(app.config.Name, app.config.ListenIP, app.config.ListenPort)
 	if err != nil {
-		return fmt.Errorf("failed to create an endpoint: %v", err)
+		log.Errorf("Failed to create an endpoint: %v", err)
+		return
 	}
 
 	if err := app.registry.RegisterEndpoint(endpoint); err != nil {
-		return fmt.Errorf("failed to register an endpoint: %v %v", endpoint, err)
+		log.Errorf("Failed to register an endpoint: %v %v", endpoint, err)
+		return
 	}
 
 	log.Infof("Registered %v", endpoint)
-
-	return nil
 }
 
 // Helper function to register handlers in vulcand.
-func (app *App) registerLocation(methods []string, path string) error {
+func (app *App) registerLocation(methods []string, path string) {
 	location := registry.NewLocation(app.config.APIHost, methods, path, app.config.Name)
 
 	if err := app.registry.RegisterLocation(location); err != nil {
-		return fmt.Errorf("failed to register a location: %v %v", location, err)
+		log.Errorf("Failed to register a location: %v %v", location, err)
+		return
 	}
 
 	log.Infof("Registered %v", location)
-
-	return nil
 }
