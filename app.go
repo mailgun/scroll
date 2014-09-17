@@ -11,6 +11,8 @@ import (
 	"github.com/mailgun/log"
 	"github.com/mailgun/manners"
 	"github.com/mailgun/metrics"
+
+	"github.com/mailgun/scroll/registry"
 )
 
 const (
@@ -28,7 +30,7 @@ const (
 type App struct {
 	config   AppConfig
 	router   *mux.Router
-	registry *registry
+	registry *registry.Registry
 	stats    *appStats
 }
 
@@ -37,11 +39,11 @@ type AppConfig struct {
 	// name of the app being created
 	Name string
 
-	// host the app is intended to bind to
-	Host string
+	// IP address the app will be listening on
+	ListenIP string
 
-	// port the app is going to listen on
-	Port int
+	// port the app will be listening on
+	ListenPort int
 
 	// optional router to use
 	Router *mux.Router
@@ -63,9 +65,9 @@ func NewApp() *App {
 
 // Create a new app with the provided configuration.
 func NewAppWithConfig(config AppConfig) *App {
-	var registry *registry
+	var reg *registry.Registry
 	if config.Register != false {
-		registry = newRegistry()
+		reg = registry.NewRegistry()
 	}
 
 	router := config.Router
@@ -76,7 +78,7 @@ func NewAppWithConfig(config AppConfig) *App {
 	return &App{
 		config:   config,
 		router:   router,
-		registry: registry,
+		registry: reg,
 		stats:    newAppStats(config.Client),
 	}
 }
@@ -151,31 +153,35 @@ func (app *App) Run() error {
 		manners.Close()
 	}()
 
-	return manners.ListenAndServe(fmt.Sprintf("%v:%v", app.config.Host, app.config.Port), nil)
+	return manners.ListenAndServe(
+		fmt.Sprintf("%v:%v", app.config.ListenIP, app.config.ListenPort), nil)
 }
 
 // Helper function to register the app's endpoint in vulcand.
 func (app *App) registerEndpoint() error {
-	endpoint := newEndpoint(app.config.Name, app.config.Host, app.config.Port)
-
-	if err := app.registry.RegisterEndpoint(endpoint); err != nil {
-		return err
+	endpoint, err := registry.NewEndpoint(app.config.Name, app.config.ListenIP, app.config.ListenPort)
+	if err != nil {
+		return fmt.Errorf("failed to create an endpoint: %v", err)
 	}
 
-	log.Infof("Registered endpoint: %v", endpoint)
+	if err := app.registry.RegisterEndpoint(endpoint); err != nil {
+		return fmt.Errorf("failed to register an endpoint: %v %v", endpoint, err)
+	}
+
+	log.Infof("Registered %v", endpoint)
 
 	return nil
 }
 
 // Helper function to register handlers in vulcand.
 func (app *App) registerLocation(methods []string, path string) error {
-	location := newLocation(app.config.APIHost, methods, path, app.config.Name)
+	location := registry.NewLocation(app.config.APIHost, methods, path, app.config.Name)
 
 	if err := app.registry.RegisterLocation(location); err != nil {
-		return err
+		return fmt.Errorf("failed to register a location: %v %v", location, err)
 	}
 
-	log.Infof("Registered location: %v", location)
+	log.Infof("Registered %v", location)
 
 	return nil
 }
