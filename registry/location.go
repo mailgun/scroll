@@ -13,10 +13,11 @@ type Location struct {
 }
 
 func NewLocation(apiHost string, methods []string, path, upstream string) *Location {
+	path = convertPath(path)
 	return &Location{
 		ID:       makeLocationID(methods, path),
 		APIHost:  apiHost,
-		Path:     makeLocationPath(methods, convertPath(path)),
+		Path:     makeLocationPath(methods, path),
 		Upstream: upstream,
 	}
 }
