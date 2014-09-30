@@ -48,8 +48,9 @@ type AppConfig struct {
 	// optional router to use
 	Router *mux.Router
 
-	// hostname of the public API entrypoint used for vulcand registration
-	APIHost string
+	// hostnames of the public and protected API entrypoints used for vulcand registration
+	PublicAPIHost    string
+	ProtectedAPIHost string
 
 	// whether to register the app's endpoint and handlers in vulcand
 	Register bool
@@ -67,7 +68,10 @@ func NewApp() *App {
 func NewAppWithConfig(config AppConfig) *App {
 	var reg *registry.Registry
 	if config.Register != false {
-		reg = registry.NewRegistry()
+		reg = registry.NewRegistry(registry.Config{
+			PublicAPIHost:    config.PublicAPIHost,
+			ProtectedAPIHost: config.ProtectedAPIHost,
+		})
 	}
 
 	router := config.Router
@@ -109,7 +113,7 @@ func (app *App) AddHandler(spec Spec) error {
 
 	// vulcand registration
 	if app.registry != nil && spec.Register != false {
-		app.registerLocation(spec.Methods, spec.Path)
+		app.registerLocation(spec.Methods, spec.Path, spec.Scope)
 	}
 
 	return nil
@@ -174,8 +178,8 @@ func (app *App) registerEndpoint() {
 }
 
 // Helper function to register handlers in vulcand.
-func (app *App) registerLocation(methods []string, path string) {
-	location := registry.NewLocation(app.config.APIHost, methods, path, app.config.Name)
+func (app *App) registerLocation(methods []string, path string, scope []registry.Scope) {
+	location := registry.NewLocation(methods, path, app.config.Name, scope)
 
 	if err := app.registry.RegisterLocation(location); err != nil {
 		log.Errorf("Failed to register a location: %v %v", location, err)

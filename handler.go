@@ -10,6 +10,8 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/mailgun/log"
+
+	"github.com/mailgun/scroll/registry"
 )
 
 // Response objects that apps' handlers are advised to return.
@@ -40,6 +42,9 @@ type Spec struct {
 
 	// Whether to register the handler in vulcand.
 	Register bool
+
+	// Controls the handler's accessibility via vulcand (public or protected). If not specified, public is assumed.
+	Scope []registry.Scope
 }
 
 // Defines the signature of a handler function that can be registered by an app.

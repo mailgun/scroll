@@ -7,23 +7,29 @@ import (
 
 type Location struct {
 	ID       string
-	APIHost  string
 	Path     string
 	Upstream string
+	Scope    []Scope
 }
 
-func NewLocation(apiHost string, methods []string, path, upstream string) *Location {
+func NewLocation(methods []string, path, upstream string, scope []Scope) *Location {
 	path = convertPath(path)
+
+	// if scope is not provided, assume public
+	if len(scope) == 0 {
+		scope = []Scope{ScopePublic}
+	}
+
 	return &Location{
 		ID:       makeLocationID(methods, path),
-		APIHost:  apiHost,
 		Path:     makeLocationPath(methods, path),
 		Upstream: upstream,
+		Scope:    scope,
 	}
 }
 
 func (l *Location) String() string {
-	return fmt.Sprintf("location(ID=%v, APIHost=%v, Path=%v, Upstream=%v)", l.ID, l.APIHost, l.Path, l.Upstream)
+	return fmt.Sprintf("location(ID=%v, Path=%v, Upstream=%v, Scope=%v)", l.ID, l.Path, l.Upstream, l.Scope)
 }
 
 func makeLocationID(methods []string, path string) string {
