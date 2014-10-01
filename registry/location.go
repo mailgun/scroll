@@ -7,23 +7,24 @@ import (
 
 type Location struct {
 	ID       string
-	APIHost  string
+	Host     string
 	Path     string
 	Upstream string
 }
 
-func NewLocation(apiHost string, methods []string, path, upstream string) *Location {
+func NewLocation(host string, methods []string, path, upstream string) *Location {
 	path = convertPath(path)
+
 	return &Location{
 		ID:       makeLocationID(methods, path),
-		APIHost:  apiHost,
+		Host:     host,
 		Path:     makeLocationPath(methods, path),
 		Upstream: upstream,
 	}
 }
 
 func (l *Location) String() string {
-	return fmt.Sprintf("location(ID=%v, APIHost=%v, Path=%v, Upstream=%v)", l.ID, l.APIHost, l.Path, l.Upstream)
+	return fmt.Sprintf("Location(ID=%v, Host=%v, Path=%v, Upstream=%v)", l.ID, l.Host, l.Path, l.Upstream)
 }
 
 func makeLocationID(methods []string, path string) string {

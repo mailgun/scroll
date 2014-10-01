@@ -17,11 +17,18 @@ const (
 
 type Registry struct {
 	etcdClient *etcd.Client
+	config     Config
 }
 
-func NewRegistry() *Registry {
+type Config struct {
+	PublicAPIHost    string
+	ProtectedAPIHost string
+}
+
+func NewRegistry(config Config) *Registry {
 	return &Registry{
 		etcdClient: etcd.NewClient([]string{"http://127.0.0.1:4001"}),
+		config:     config,
 	}
 }
 
@@ -35,8 +42,9 @@ func (r *Registry) RegisterEndpoint(e *Endpoint) error {
 	return nil
 }
 
+// RegisterLocation registers a provided location in vulcand.
 func (r *Registry) RegisterLocation(l *Location) error {
-	key := fmt.Sprintf(locationKey, l.APIHost, l.ID)
+	key := fmt.Sprintf(locationKey, l.Host, l.ID)
 
 	pathKey := fmt.Sprintf("%v/path", key)
 	if _, err := r.etcdClient.Set(pathKey, l.Path, 0); err != nil {

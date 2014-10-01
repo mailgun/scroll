@@ -40,6 +40,9 @@ type Spec struct {
 
 	// Whether to register the handler in vulcand.
 	Register bool
+
+	// Controls the handler's accessibility via vulcand (public or protected). If not specified, public is assumed.
+	Scopes []Scope
 }
 
 // Defines the signature of a handler function that can be registered by an app.
