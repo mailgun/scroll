@@ -39,10 +39,8 @@ type AppConfig struct {
 	// name of the app being created
 	Name string
 
-	// IP address the app will be listening on
-	ListenIP string
-
-	// port the app will be listening on
+	// IP/port the app will bind to
+	ListenIP   string
 	ListenPort int
 
 	// optional router to use
@@ -113,7 +111,7 @@ func (app *App) AddHandler(spec Spec) error {
 
 	// vulcand registration
 	if app.registry != nil && spec.Register != false {
-		app.registerLocation(spec.Methods, spec.Path, spec.Scope)
+		app.registerLocation(spec.Methods, spec.Path, spec.Scopes)
 	}
 
 	return nil
@@ -161,7 +159,7 @@ func (app *App) Run() error {
 		fmt.Sprintf("%v:%v", app.config.ListenIP, app.config.ListenPort), nil)
 }
 
-// Helper function to register the app's endpoint in vulcand.
+// registerEndpoint is a helper for registering the app's endpoint in vulcand.
 func (app *App) registerEndpoint() {
 	endpoint, err := registry.NewEndpoint(app.config.Name, app.config.ListenIP, app.config.ListenPort)
 	if err != nil {
@@ -174,17 +172,45 @@ func (app *App) registerEndpoint() {
 		return
 	}
 
-	log.Infof("Registered %v", endpoint)
+	log.Infof("Registered: %v", endpoint)
 }
 
-// Helper function to register handlers in vulcand.
-func (app *App) registerLocation(methods []string, path string, scope []registry.Scope) {
-	location := registry.NewLocation(methods, path, app.config.Name, scope)
+// registerLocation is a helper for registering handlers in vulcand.
+func (app *App) registerLocation(methods []string, path string, scopes []Scope) {
+	for _, scope := range scopes {
+		app.registerLocationForScope(methods, path, scope)
+	}
+}
+
+// registerLocationForScope registers a location with a specified scope.
+func (app *App) registerLocationForScope(methods []string, path string, scope Scope) {
+	host, err := app.apiHostForScope(scope)
+	if err != nil {
+		log.Errorf("Failed to register a location: %v", err)
+		return
+	}
+	app.registerLocationForHost(methods, path, host)
+}
+
+// registerLocationForHost registers a location for a specified hostname.
+func (app *App) registerLocationForHost(methods []string, path, host string) {
+	location := registry.NewLocation(host, methods, path, app.config.Name)
 
 	if err := app.registry.RegisterLocation(location); err != nil {
 		log.Errorf("Failed to register a location: %v %v", location, err)
 		return
 	}
 
-	log.Infof("Registered %v", location)
+	log.Infof("Registered: %v", location)
+}
+
+// apiHostForScope is a helper that returns an appropriate API hostname for a provided scope.
+func (app *App) apiHostForScope(scope Scope) (string, error) {
+	if scope == ScopePublic {
+		return app.config.PublicAPIHost, nil
+	} else if scope == ScopeProtected {
+		return app.config.ProtectedAPIHost, nil
+	} else {
+		return "", fmt.Errorf("unknown scope value: %v", scope)
+	}
 }

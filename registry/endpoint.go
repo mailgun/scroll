@@ -30,7 +30,7 @@ func NewEndpoint(name, listenIP string, listenPort int) (*Endpoint, error) {
 }
 
 func (e *Endpoint) String() string {
-	return fmt.Sprintf("endpoint(ID=%v, Name=%v, URL=%v)", e.ID, e.Name, e.URL)
+	return fmt.Sprintf("Endpoint(ID=%v, Name=%v, URL=%v)", e.ID, e.Name, e.URL)
 }
 
 // Construct an endpoint ID in the format of <hostname>_<port>.
