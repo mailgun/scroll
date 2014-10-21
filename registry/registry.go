@@ -56,5 +56,10 @@ func (r *Registry) RegisterLocation(l *Location) error {
 		return err
 	}
 
+	optionsKey := fmt.Sprintf("%v/options", key)
+	if _, err := r.etcdClient.Set(optionsKey, l.Options.Format(), 0); err != nil {
+		return err
+	}
+
 	return nil
 }

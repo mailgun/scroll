@@ -5,11 +5,33 @@ import (
 	"strings"
 )
 
+const (
+	defaultFailoverPredicate = "(IsNetworkError() || ResponseCode() == 503) && Attempts() <= 2"
+)
+
 type Location struct {
 	ID       string
 	Host     string
 	Path     string
 	Upstream string
+	Options  LocationOptions
+}
+
+type LocationOptions struct {
+	FailoverPredicate string
+}
+
+// Format returns a string with the location options format understood by vulcand,
+// effectively a JSON encoded string.
+//
+// Unfortunately, the JSON marshaller from the standard library cannot be used instead
+// because it escapes angle brackets and ampersands.
+func (o LocationOptions) Format() string {
+	return fmt.Sprintf(`{"FailoverPredicate": "%v"}`, o.FailoverPredicate)
+}
+
+func (o LocationOptions) String() string {
+	return fmt.Sprintf("LocationOptions(FailoverPredicate=%v)", o.FailoverPredicate)
 }
 
 func NewLocation(host string, methods []string, path, upstream string) *Location {
@@ -20,11 +42,15 @@ func NewLocation(host string, methods []string, path, upstream string) *Location
 		Host:     host,
 		Path:     makeLocationPath(methods, path),
 		Upstream: upstream,
+		Options: LocationOptions{
+			FailoverPredicate: defaultFailoverPredicate,
+		},
 	}
 }
 
 func (l *Location) String() string {
-	return fmt.Sprintf("Location(ID=%v, Host=%v, Path=%v, Upstream=%v)", l.ID, l.Host, l.Path, l.Upstream)
+	return fmt.Sprintf("Location(ID=%v, Host=%v, Path=%v, Upstream=%v, Options=%v)",
+		l.ID, l.Host, l.Path, l.Upstream, l.Options)
 }
 
 func makeLocationID(methods []string, path string) string {
