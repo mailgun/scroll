@@ -78,7 +78,7 @@ func MakeHandler(app *App, fn HandlerFunc, spec Spec) http.HandlerFunc {
 			status = http.StatusOK
 		}
 
-		log.Infof("Request completed: status [%v] method [%v] path [%v] form [%v] time [%v] error [%v]",
+		log.Infof("Request(Status=%v, Method=%v, Path=%v, Form=%v, Time=%v, Error=%v)",
 			status, r.Method, r.URL, r.Form, elapsedTime, err)
 
 		app.stats.TrackRequest(spec.MetricName, status, elapsedTime)
@@ -117,7 +117,7 @@ func MakeHandlerWithBody(app *App, fn HandlerWithBodyFunc, spec Spec) http.Handl
 			status = http.StatusOK
 		}
 
-		log.Infof("Request completed: status [%v] method [%v] path [%v] form [%v] time [%v] error [%v]",
+		log.Infof("Request(Status=%v, Method=%v, Path=%v, Form=%v, Time=%v, Error=%v)",
 			status, r.Method, r.URL, r.Form, elapsedTime, err)
 
 		app.stats.TrackRequest(spec.MetricName, status, elapsedTime)
