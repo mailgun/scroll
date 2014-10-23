@@ -44,7 +44,7 @@ func GetIntField(r *http.Request, fieldName string) (int, error) {
 	}
 	intField, err := strconv.Atoi(stringField)
 	if err != nil {
-		return 0, err
+		return 0, InvalidFormatError{fieldName, stringField}
 	}
 	return intField, nil
 }
