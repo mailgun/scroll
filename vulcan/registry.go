@@ -1,4 +1,4 @@
-package registry
+package vulcan
 
 import (
 	"fmt"
@@ -42,7 +42,7 @@ func (r *Registry) RegisterEndpoint(e *Endpoint) error {
 	return nil
 }
 
-// RegisterLocation registers a provided location in vulcand.
+// RegisterLocation registers a provided location in vulcan.
 func (r *Registry) RegisterLocation(l *Location) error {
 	key := fmt.Sprintf(locationKey, l.Host, l.ID)
 
@@ -59,6 +59,13 @@ func (r *Registry) RegisterLocation(l *Location) error {
 	optionsKey := fmt.Sprintf("%v/options", key)
 	if _, err := r.etcdClient.Set(optionsKey, l.Options.Format(), 0); err != nil {
 		return err
+	}
+
+	for _, m := range l.Middlewares {
+		middlewareKey := fmt.Sprintf("%v/middlewares/%v/%v", key, m.Type, m.ID)
+		if _, err := r.etcdClient.Set(middlewareKey, m.Format(), 0); err != nil {
+			return err
+		}
 	}
 
 	return nil
