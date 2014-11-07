@@ -7,8 +7,6 @@ import (
 	"net/url"
 	"strings"
 
-	. "gopkg.in/check.v1"
-
 	"github.com/mailgun/scroll"
 )
 
