@@ -49,3 +49,18 @@ func main() {
 	app.Run()
 }
 ```
+
+Build info
+----------
+
+Scroll apps automatically provide an HTTP handler for the path `/build_info`. This path is never registered in vulcan. If the correct arguments are passed to the linker at build time, this path provides information about the binary, like when it was built, what commit it was built from, and a link to the Github view of that commit. To configure your app to use this feature, pass the following flag to `go build` or `go install`. Since the flag is complicated, this should ideally be in a Makefile or other script:
+
+    -ldflags "-X `go list -f '{{join .Deps "\n"}}' | grep 'mailgun/scroll$'`.build '`git log -1 --oneline`; `date`; `go list`'"
+
+Example Makefile target:
+
+    all:
+        go install -ldflags "-X `go list -f '{{join .Deps "\n"}}' | grep 'scroll$'`.build '`git log -1 --oneline`; `date`; `go list`'" github.com/mailgun/gatekeeper
+
+
+Explanation of the flag: `go build`, `go install`, and several other `go` subcommands allow passing flags to [go tool ld](http://golang.org/cmd/ld/) through `-ldflags`. The one we are passing here is `-X`, which sets the value of an otherwise uninitialized string variable. The variable we are setting is `github.com/mailgun/scroll.build`, but since most Mailgun binaries use Godep, we might need to set `github.com/mailgun/<APP>/Godeps/_workspace/src/github.com/mailgun/scroll.build` instead. To handle either case, we programatically find the name of a transitive dependency ending in "mailgun/scroll" and set its `build` variabl. That's the ``go list -f '{{join .Deps "\n"}}' | grep 'mailgun/scroll$'`.build`` part of the flag. Finally, we use ``'`git log -1 --oneline`; `date`; `go list`'`` to capture the build information and semicolon-separate it for `scroll` to parse.

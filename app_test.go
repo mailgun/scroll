@@ -12,6 +12,10 @@ import (
 
 var ldtest = flag.Bool("ldtest", false, "Run special test that requires -ldflags to be set at build time.")
 
+// TestBuildInfo tests whether scroll's /build_info endpoint works. This test will only pass if the correct linker arguments were passed at build time.
+// In particular, this test should pass if you invoke it like this:
+//
+//    go test -v -ldflags "-X github.com/mailgun/scroll.build '`git log -1 --oneline`; `date`; `go list`'" -ldtest
 func TestBuildInfo(t *testing.T) {
 	if !flag.Parsed() {
 		flag.Parse()
