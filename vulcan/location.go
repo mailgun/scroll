@@ -1,4 +1,4 @@
-package registry
+package vulcan
 
 import (
 	"fmt"
@@ -10,31 +10,32 @@ const (
 )
 
 type Location struct {
-	ID       string
-	Host     string
-	Path     string
-	Upstream string
-	Options  LocationOptions
+	ID          string
+	Host        string
+	Path        string
+	Upstream    string
+	Options     LocationOptions
+	Middlewares []Middleware
 }
 
 type LocationOptions struct {
 	FailoverPredicate string
 }
 
-// Format returns a string with the location options format understood by vulcand,
+// MarshalJSON returns a string with the location options format understood by vulcand,
 // effectively a JSON encoded string.
 //
 // Unfortunately, the JSON marshaller from the standard library cannot be used instead
 // because it escapes angle brackets and ampersands.
-func (o LocationOptions) Format() string {
-	return fmt.Sprintf(`{"FailoverPredicate": "%v"}`, o.FailoverPredicate)
+func (o LocationOptions) MarshalJSON() ([]byte, error) {
+	return []byte(fmt.Sprintf(`{"FailoverPredicate": "%v"}`, o.FailoverPredicate)), nil
 }
 
 func (o LocationOptions) String() string {
 	return fmt.Sprintf("LocationOptions(FailoverPredicate=%v)", o.FailoverPredicate)
 }
 
-func NewLocation(host string, methods []string, path, upstream string) *Location {
+func NewLocation(host string, methods []string, path, upstream string, middlewares []Middleware) *Location {
 	path = convertPath(path)
 
 	return &Location{
@@ -45,12 +46,13 @@ func NewLocation(host string, methods []string, path, upstream string) *Location
 		Options: LocationOptions{
 			FailoverPredicate: defaultFailoverPredicate,
 		},
+		Middlewares: middlewares,
 	}
 }
 
 func (l *Location) String() string {
-	return fmt.Sprintf("Location(ID=%v, Host=%v, Path=%v, Upstream=%v, Options=%v)",
-		l.ID, l.Host, l.Path, l.Upstream, l.Options)
+	return fmt.Sprintf("Location(ID=%v, Host=%v, Path=%v, Upstream=%v, Options=%v, Middlewares=%v)",
+		l.ID, l.Host, l.Path, l.Upstream, l.Options, l.Middlewares)
 }
 
 func makeLocationID(methods []string, path string) string {

@@ -10,6 +10,8 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/mailgun/log"
+
+	"github.com/mailgun/scroll/vulcan"
 )
 
 // Response objects that apps' handlers are advised to return.
@@ -38,11 +40,14 @@ type Spec struct {
 	// Unique identifier used when emitting performance metrics for the handler.
 	MetricName string
 
-	// Whether to register the handler in vulcand.
+	// Whether to register the handler in vulcan.
 	Register bool
 
-	// Controls the handler's accessibility via vulcand (public or protected). If not specified, public is assumed.
+	// Controls the handler's accessibility via vulcan (public or protected). If not specified, public is assumed.
 	Scopes []Scope
+
+	// Vulcan middlewares to register with the handler.
+	Middlewares []vulcan.Middleware
 }
 
 // Defines the signature of a handler function that can be registered by an app.

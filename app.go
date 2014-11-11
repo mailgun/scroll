@@ -12,7 +12,7 @@ import (
 	"github.com/mailgun/manners"
 	"github.com/mailgun/metrics"
 
-	"github.com/mailgun/scroll/registry"
+	"github.com/mailgun/scroll/vulcan"
 )
 
 const (
@@ -28,9 +28,9 @@ const (
 
 // Represents an app.
 type App struct {
-	config   AppConfig
+	Config   AppConfig
 	router   *mux.Router
-	registry *registry.Registry
+	registry *vulcan.Registry
 	stats    *appStats
 }
 
@@ -46,11 +46,11 @@ type AppConfig struct {
 	// optional router to use
 	Router *mux.Router
 
-	// hostnames of the public and protected API entrypoints used for vulcand registration
+	// hostnames of the public and protected API entrypoints used for vulcan registration
 	PublicAPIHost    string
 	ProtectedAPIHost string
 
-	// whether to register the app's endpoint and handlers in vulcand
+	// whether to register the app's endpoint and handlers in vulcan
 	Register bool
 
 	// metrics service used for emitting the app's real-time metrics
@@ -64,9 +64,9 @@ func NewApp() *App {
 
 // Create a new app with the provided configuration.
 func NewAppWithConfig(config AppConfig) *App {
-	var reg *registry.Registry
+	var reg *vulcan.Registry
 	if config.Register != false {
-		reg = registry.NewRegistry(registry.Config{
+		reg = vulcan.NewRegistry(vulcan.Config{
 			PublicAPIHost:    config.PublicAPIHost,
 			ProtectedAPIHost: config.ProtectedAPIHost,
 		})
@@ -78,7 +78,7 @@ func NewAppWithConfig(config AppConfig) *App {
 	}
 
 	return &App{
-		config:   config,
+		Config:   config,
 		router:   router,
 		registry: reg,
 		stats:    newAppStats(config.Client),
@@ -87,7 +87,7 @@ func NewAppWithConfig(config AppConfig) *App {
 
 // Register a handler function.
 //
-// If vulcand registration is enabled in the both app config and handler spec,
+// If vulcan registration is enabled in the both app config and handler spec,
 // the handler will be registered in the local etcd instance.
 func (app *App) AddHandler(spec Spec) error {
 	var handler http.HandlerFunc
@@ -109,9 +109,9 @@ func (app *App) AddHandler(spec Spec) error {
 		route.Headers(spec.Headers...)
 	}
 
-	// vulcand registration
+	// vulcan registration
 	if app.registry != nil && spec.Register != false {
-		app.registerLocation(spec.Methods, spec.Path, spec.Scopes)
+		app.registerLocation(spec.Methods, spec.Path, spec.Scopes, spec.Middlewares)
 	}
 
 	return nil
@@ -129,7 +129,7 @@ func (app *App) SetNotFoundHandler(fn http.HandlerFunc) {
 
 // Start the app on the configured host/port.
 //
-// If vulcand registration is enabled in the app config, starts a goroutine that
+// If vulcan registration is enabled in the app config, starts a goroutine that
 // will be registering the app's endpoint once every minute in the local etcd
 // instance.
 //
@@ -156,12 +156,12 @@ func (app *App) Run() error {
 	}()
 
 	return manners.ListenAndServe(
-		fmt.Sprintf("%v:%v", app.config.ListenIP, app.config.ListenPort), nil)
+		fmt.Sprintf("%v:%v", app.Config.ListenIP, app.Config.ListenPort), nil)
 }
 
-// registerEndpoint is a helper for registering the app's endpoint in vulcand.
+// registerEndpoint is a helper for registering the app's endpoint in vulcan.
 func (app *App) registerEndpoint() {
-	endpoint, err := registry.NewEndpoint(app.config.Name, app.config.ListenIP, app.config.ListenPort)
+	endpoint, err := vulcan.NewEndpoint(app.Config.Name, app.Config.ListenIP, app.Config.ListenPort)
 	if err != nil {
 		log.Errorf("Failed to create an endpoint: %v", err)
 		return
@@ -175,26 +175,26 @@ func (app *App) registerEndpoint() {
 	log.Infof("Registered: %v", endpoint)
 }
 
-// registerLocation is a helper for registering handlers in vulcand.
-func (app *App) registerLocation(methods []string, path string, scopes []Scope) {
+// registerLocation is a helper for registering handlers in vulcan.
+func (app *App) registerLocation(methods []string, path string, scopes []Scope, middlewares []vulcan.Middleware) {
 	for _, scope := range scopes {
-		app.registerLocationForScope(methods, path, scope)
+		app.registerLocationForScope(methods, path, scope, middlewares)
 	}
 }
 
 // registerLocationForScope registers a location with a specified scope.
-func (app *App) registerLocationForScope(methods []string, path string, scope Scope) {
+func (app *App) registerLocationForScope(methods []string, path string, scope Scope, middlewares []vulcan.Middleware) {
 	host, err := app.apiHostForScope(scope)
 	if err != nil {
 		log.Errorf("Failed to register a location: %v", err)
 		return
 	}
-	app.registerLocationForHost(methods, path, host)
+	app.registerLocationForHost(methods, path, host, middlewares)
 }
 
 // registerLocationForHost registers a location for a specified hostname.
-func (app *App) registerLocationForHost(methods []string, path, host string) {
-	location := registry.NewLocation(host, methods, path, app.config.Name)
+func (app *App) registerLocationForHost(methods []string, path, host string, middlewares []vulcan.Middleware) {
+	location := vulcan.NewLocation(host, methods, path, app.Config.Name, middlewares)
 
 	if err := app.registry.RegisterLocation(location); err != nil {
 		log.Errorf("Failed to register a location: %v %v", location, err)
@@ -207,9 +207,9 @@ func (app *App) registerLocationForHost(methods []string, path, host string) {
 // apiHostForScope is a helper that returns an appropriate API hostname for a provided scope.
 func (app *App) apiHostForScope(scope Scope) (string, error) {
 	if scope == ScopePublic {
-		return app.config.PublicAPIHost, nil
+		return app.Config.PublicAPIHost, nil
 	} else if scope == ScopeProtected {
-		return app.config.ProtectedAPIHost, nil
+		return app.Config.ProtectedAPIHost, nil
 	} else {
 		return "", fmt.Errorf("unknown scope value: %v", scope)
 	}
