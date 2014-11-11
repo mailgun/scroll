@@ -1,6 +1,9 @@
 package vulcan
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+)
 
 type Middleware struct {
 	Type     string
@@ -10,12 +13,13 @@ type Middleware struct {
 }
 
 type MiddlewareSpec interface {
-	Format() string
+	json.Marshaler
 }
 
-func (m Middleware) Format() string {
-	return fmt.Sprintf(`{"Type": "%v", "Id": "%v", "Priority": %v, "Middleware": %v}`,
-		m.Type, m.ID, m.Priority, m.Spec.Format())
+func (m Middleware) MarshalJSON() ([]byte, error) {
+	spec, _ := json.Marshal(m.Spec)
+	return []byte(fmt.Sprintf(`{"Type": "%v", "Id": "%v", "Priority": %v, "Middleware": %v}`,
+		m.Type, m.ID, m.Priority, spec)), nil
 }
 
 func (m Middleware) String() string {

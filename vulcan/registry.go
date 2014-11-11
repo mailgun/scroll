@@ -1,6 +1,7 @@
 package vulcan
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/mailgun/go-etcd/etcd"
@@ -56,14 +57,16 @@ func (r *Registry) RegisterLocation(l *Location) error {
 		return err
 	}
 
+	options, _ := json.Marshal(l.Options)
 	optionsKey := fmt.Sprintf("%v/options", key)
-	if _, err := r.etcdClient.Set(optionsKey, l.Options.Format(), 0); err != nil {
+	if _, err := r.etcdClient.Set(optionsKey, string(options), 0); err != nil {
 		return err
 	}
 
 	for _, m := range l.Middlewares {
+		middleware, _ := json.Marshal(m)
 		middlewareKey := fmt.Sprintf("%v/middlewares/%v/%v", key, m.Type, m.ID)
-		if _, err := r.etcdClient.Set(middlewareKey, m.Format(), 0); err != nil {
+		if _, err := r.etcdClient.Set(middlewareKey, string(middleware), 0); err != nil {
 			return err
 		}
 	}
