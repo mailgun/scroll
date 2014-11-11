@@ -63,7 +63,11 @@ func (r *Registry) RegisterLocation(l *Location) error {
 		return err
 	}
 
-	for _, m := range l.Middlewares {
+	for i, m := range l.Middlewares {
+		// each middleware has a priority defining its order in the execution chain;
+		// assign them priorities according to their positions in the list
+		m.Priority = i
+
 		middleware, _ := json.Marshal(m)
 		middlewareKey := fmt.Sprintf("%v/middlewares/%v/%v", key, m.Type, m.ID)
 		if _, err := r.etcdClient.Set(middlewareKey, string(middleware), 0); err != nil {

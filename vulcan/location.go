@@ -3,6 +3,8 @@ package vulcan
 import (
 	"fmt"
 	"strings"
+
+	"github.com/mailgun/scroll/vulcan/middleware"
 )
 
 const (
@@ -15,7 +17,7 @@ type Location struct {
 	Path        string
 	Upstream    string
 	Options     LocationOptions
-	Middlewares []Middleware
+	Middlewares []middleware.Middleware
 }
 
 type LocationOptions struct {
@@ -35,7 +37,7 @@ func (o LocationOptions) String() string {
 	return fmt.Sprintf("LocationOptions(FailoverPredicate=%v)", o.FailoverPredicate)
 }
 
-func NewLocation(host string, methods []string, path, upstream string, middlewares []Middleware) *Location {
+func NewLocation(host string, methods []string, path, upstream string, middlewares []middleware.Middleware) *Location {
 	path = convertPath(path)
 
 	return &Location{
