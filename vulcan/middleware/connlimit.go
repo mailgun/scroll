@@ -10,8 +10,8 @@ const (
 // ConnLimit is a spec for the respective vulcan's middleware that lets to control amount if simultaneous
 // connections to locations.
 type ConnLimit struct {
-	Variable    string
-	Connections int
+	Variable    string `json:"Variable"`
+	Connections int    `json:"Connections"`
 }
 
 func NewConnLimit(spec ConnLimit) Middleware {
@@ -21,11 +21,6 @@ func NewConnLimit(spec ConnLimit) Middleware {
 		Priority: DefaultPriority,
 		Spec:     spec,
 	}
-}
-
-func (cl ConnLimit) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf(`{"Variable": "%v", "Connections": %v`,
-		cl.Variable, cl.Connections)), nil
 }
 
 func (cl ConnLimit) String() string {

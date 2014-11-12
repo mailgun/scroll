@@ -57,7 +57,11 @@ func (r *Registry) RegisterLocation(l *Location) error {
 		return err
 	}
 
-	options, _ := json.Marshal(l.Options)
+	options, err := json.Marshal(l.Options)
+	if err != nil {
+		return fmt.Errorf("failed to marshal %v: %v", l.Options, err)
+	}
+
 	optionsKey := fmt.Sprintf("%v/options", key)
 	if _, err := r.etcdClient.Set(optionsKey, string(options), 0); err != nil {
 		return err
@@ -68,7 +72,11 @@ func (r *Registry) RegisterLocation(l *Location) error {
 		// assign them priorities according to their positions in the list
 		m.Priority = i
 
-		middleware, _ := json.Marshal(m)
+		middleware, err := json.Marshal(m)
+		if err != nil {
+			return fmt.Errorf("failed to marshal %v: %v", m, err)
+		}
+
 		middlewareKey := fmt.Sprintf("%v/middlewares/%v/%v", key, m.Type, m.ID)
 		if _, err := r.etcdClient.Set(middlewareKey, string(middleware), 0); err != nil {
 			return err

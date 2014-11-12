@@ -10,10 +10,10 @@ const (
 // RateLimit is a spec for the respective vulcan's middleware that lets to apply request rate limits to
 // locations.
 type RateLimit struct {
-	Variable      string
-	Requests      int
-	PeriodSeconds int
-	Burst         int
+	Variable      string `json:"Variable"`
+	Requests      int    `json:"Requests"`
+	PeriodSeconds int    `json:"PeriodSeconds"`
+	Burst         int    `json:"Burst"`
 }
 
 func NewRateLimit(spec RateLimit) Middleware {
@@ -23,11 +23,6 @@ func NewRateLimit(spec RateLimit) Middleware {
 		Priority: DefaultPriority,
 		Spec:     spec,
 	}
-}
-
-func (rl RateLimit) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf(`{"Variable": "%v", "Requests": %v, "PeriodSeconds": %v, "Burst": %v`,
-		rl.Variable, rl.Requests, rl.PeriodSeconds, rl.Burst)), nil
 }
 
 func (rl RateLimit) String() string {

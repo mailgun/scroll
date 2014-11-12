@@ -21,16 +21,7 @@ type Location struct {
 }
 
 type LocationOptions struct {
-	FailoverPredicate string
-}
-
-// MarshalJSON returns a string with the location options format understood by vulcand,
-// effectively a JSON encoded string.
-//
-// Unfortunately, the JSON marshaller from the standard library cannot be used instead
-// because it escapes angle brackets and ampersands.
-func (o LocationOptions) MarshalJSON() ([]byte, error) {
-	return []byte(fmt.Sprintf(`{"FailoverPredicate": "%v"}`, o.FailoverPredicate)), nil
+	FailoverPredicate string `json:"FailoverPredicate"`
 }
 
 func (o LocationOptions) String() string {
