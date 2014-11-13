@@ -11,7 +11,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/mailgun/log"
 
-	"github.com/mailgun/scroll/vulcan"
+	"github.com/mailgun/scroll/vulcan/middleware"
 )
 
 // Response objects that apps' handlers are advised to return.
@@ -46,8 +46,9 @@ type Spec struct {
 	// Controls the handler's accessibility via vulcan (public or protected). If not specified, public is assumed.
 	Scopes []Scope
 
-	// Vulcan middlewares to register with the handler.
-	Middlewares []vulcan.Middleware
+	// Vulcan middlewares to register with the handler. When registering, middlewares are assigned priorities
+	// according to their positions in the list: a middleware that appears in the list earlier is executed first.
+	Middlewares []middleware.Middleware
 }
 
 // Defines the signature of a handler function that can be registered by an app.

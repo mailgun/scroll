@@ -13,6 +13,7 @@ import (
 	"github.com/mailgun/metrics"
 
 	"github.com/mailgun/scroll/vulcan"
+	"github.com/mailgun/scroll/vulcan/middleware"
 )
 
 const (
@@ -49,6 +50,7 @@ type AppConfig struct {
 	// hostnames of the public and protected API entrypoints used for vulcan registration
 	PublicAPIHost    string
 	ProtectedAPIHost string
+	ProtectedAPIURL  string
 
 	// whether to register the app's endpoint and handlers in vulcan
 	Register bool
@@ -176,14 +178,14 @@ func (app *App) registerEndpoint() {
 }
 
 // registerLocation is a helper for registering handlers in vulcan.
-func (app *App) registerLocation(methods []string, path string, scopes []Scope, middlewares []vulcan.Middleware) {
+func (app *App) registerLocation(methods []string, path string, scopes []Scope, middlewares []middleware.Middleware) {
 	for _, scope := range scopes {
 		app.registerLocationForScope(methods, path, scope, middlewares)
 	}
 }
 
 // registerLocationForScope registers a location with a specified scope.
-func (app *App) registerLocationForScope(methods []string, path string, scope Scope, middlewares []vulcan.Middleware) {
+func (app *App) registerLocationForScope(methods []string, path string, scope Scope, middlewares []middleware.Middleware) {
 	host, err := app.apiHostForScope(scope)
 	if err != nil {
 		log.Errorf("Failed to register a location: %v", err)
@@ -193,7 +195,7 @@ func (app *App) registerLocationForScope(methods []string, path string, scope Sc
 }
 
 // registerLocationForHost registers a location for a specified hostname.
-func (app *App) registerLocationForHost(methods []string, path, host string, middlewares []vulcan.Middleware) {
+func (app *App) registerLocationForHost(methods []string, path, host string, middlewares []middleware.Middleware) {
 	location := vulcan.NewLocation(host, methods, path, app.Config.Name, middlewares)
 
 	if err := app.registry.RegisterLocation(location); err != nil {
