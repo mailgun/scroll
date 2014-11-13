@@ -50,6 +50,7 @@ type AppConfig struct {
 	// hostnames of the public and protected API entrypoints used for vulcan registration
 	PublicAPIHost    string
 	ProtectedAPIHost string
+	ProtectedAPIURL  string
 
 	// whether to register the app's endpoint and handlers in vulcan
 	Register bool
