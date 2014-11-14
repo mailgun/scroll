@@ -64,7 +64,7 @@ func GetTimestampField(r *http.Request, fieldName string) (time.Time, error) {
 	return parsedTime, nil
 }
 
-// GetDurationField retrieves a request field as a time.Duration.
+// GetDurationField retrieves a request field as a time.Duration, which is not allowed to be negative.
 // Returns `MissingFieldError` if requested field is missing.
 func GetDurationField(r *http.Request, fieldName string) (time.Duration, error) {
 	s, err := GetStringField(r, fieldName)
@@ -72,7 +72,7 @@ func GetDurationField(r *http.Request, fieldName string) (time.Duration, error) 
 		return 0, err
 	}
 	d, err := time.ParseDuration(s)
-	if err != nil {
+	if err != nil || d < 0 {
 		return 0, InvalidFormatError{fieldName, s}
 	}
 	return d, nil
