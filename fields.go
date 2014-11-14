@@ -55,12 +55,11 @@ func GetIntField(r *http.Request, fieldName string) (int, error) {
 func GetTimestampField(r *http.Request, fieldName string) (time.Time, error) {
 	if _, ok := r.Form[fieldName]; !ok {
 		return time.Now(), MissingFieldError{fieldName}
-	} else {
-		parsedTime, err := time.Parse(time.RFC1123, r.FormValue(fieldName))
-		if err != nil {
-			log.Infof("Failed to convert timestamp %v: %v", r.FormValue(fieldName), err)
-			return time.Now(), InvalidFormatError{fieldName, r.FormValue(fieldName)}
-		}
-		return parsedTime, nil
 	}
+	parsedTime, err := time.Parse(time.RFC1123, r.FormValue(fieldName))
+	if err != nil {
+		log.Infof("Failed to convert timestamp %v: %v", r.FormValue(fieldName), err)
+		return time.Now(), InvalidFormatError{fieldName, r.FormValue(fieldName)}
+	}
+	return parsedTime, nil
 }
