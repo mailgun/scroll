@@ -15,6 +15,7 @@ type RestHelper struct{}
 // T is an interface common to testing.T, testing.B, and *check.C.
 type T interface {
 	Fatal(args ...interface{})
+	Fatalf(format string, args ...interface{})
 }
 
 func (h *RestHelper) Get(t T, url string) scroll.Response {
@@ -69,7 +70,7 @@ func (h *RestHelper) parseResponse(t T, response *http.Response) scroll.Response
 	parsedResponse := scroll.Response{}
 	err = json.Unmarshal(responseBytes, &parsedResponse)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("error parsing %q as json: %v", responseBytes, err)
 	}
 
 	return parsedResponse

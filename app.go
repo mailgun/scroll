@@ -1,10 +1,12 @@
 package scroll
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -78,6 +80,7 @@ func NewAppWithConfig(config AppConfig) *App {
 	if router == nil {
 		router = mux.NewRouter()
 	}
+	router.HandleFunc("/build_info", buildInfo).Methods("GET")
 
 	return &App{
 		Config:   config,
@@ -215,4 +218,44 @@ func (app *App) apiHostForScope(scope Scope) (string, error) {
 	} else {
 		return "", fmt.Errorf("unknown scope value: %v", scope)
 	}
+}
+
+// build is never explicitly initialized in code. It is only non-empty if the -X flag is set on the Go linker at build time.
+var build string
+
+// buildInfo responds to an http request with information about the current binary.
+func buildInfo(w http.ResponseWriter, r *http.Request) {
+	// If build information was set incorrectly or not at all during build time,
+	// default to displaying the string "information missing" for all fields.
+	empty := "information missing"
+	info := struct {
+		Commit      string `json:"commit"`
+		Description string `json:"description"`
+		GithubLink  string `json:"github link"`
+		BuildTime   string `json:"build time"`
+	}{empty, empty, empty, empty}
+
+	// Marshall to json whatever we have in info when we exit the function.
+	defer json.NewEncoder(w).Encode(&info)
+
+	// Parse build. Expected format is:
+	//    <commit hash> <commit message>; <date>; <location of package main>
+	//
+	// For example:
+	//    e5469c7 tests passing when ldflags are provided; Fri Nov  7 16:05:28 PST 2014; github.com/mailgun/scroll
+	parts := strings.Split(build, ";")
+	if len(parts) != 3 {
+		return
+	}
+	commit := strings.SplitN(strings.TrimSpace(parts[0]), " ", 2)
+	if len(commit) != 2 {
+		return
+	}
+
+	// Everything parsed successfully.
+	info.Commit, info.Description = commit[0], commit[1]
+	info.BuildTime = strings.TrimSpace(parts[1])
+	info.GithubLink = "https://" + strings.TrimSpace(parts[2]) + "/commit/" + info.Commit
+
+	return
 }
