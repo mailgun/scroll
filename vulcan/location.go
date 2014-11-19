@@ -2,6 +2,7 @@ package vulcan
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"github.com/mailgun/scroll/vulcan/middleware"
@@ -58,7 +59,11 @@ func makeLocationPath(methods []string, path string) string {
 
 // Convert router path to the format understood by vulcand.
 //
-// Effectively, just replaces curly brackets with angle brackets.
+// Does two things:
+//  - Strips regular expression parts of path variables, i.e. turns "/v2/{id:[0-9]+}" into "/v2/{id}".
+//  - Replaces curly brackets with angle brackets, i.e. turns "/v2/{id}" into "/v2/<id>".
 func convertPath(path string) string {
+	// strip everything between : (including) and } (excluding)
+	path = regexp.MustCompile("(:[^}]+)").ReplaceAllString(path, "")
 	return strings.Replace(strings.Replace(path, "{", "<", -1), "}", ">", -1)
 }
