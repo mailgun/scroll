@@ -129,6 +129,7 @@ func (app *App) SetNotFoundHandler(fn http.HandlerFunc) {
 	app.router.NotFoundHandler = fn
 }
 
+// IsPublicRequest determines whether the provided request came through the public HTTP endpoint.
 func (app *App) IsPublicRequest(request *http.Request) bool {
 	return request.URL.Host == app.Config.PublicAPIHost
 }
