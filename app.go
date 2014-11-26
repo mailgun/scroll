@@ -129,6 +129,10 @@ func (app *App) SetNotFoundHandler(fn http.HandlerFunc) {
 	app.router.NotFoundHandler = fn
 }
 
+func (app *App) IsPublicRequest(request *http.Request) bool {
+	return request.URL.Host == app.Config.PublicAPIHost
+}
+
 // Start the app on the configured host/port.
 //
 // If vulcan registration is enabled in the app config, starts a goroutine that
