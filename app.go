@@ -28,7 +28,7 @@ const (
 	MaxBatchSize int = 1000
 
 	// Interval between Vulcand heartbeats (if the app if configured to register in it).
-	defaultRegisterInterval time.Duration = 10 * time.Second
+	defaultRegisterInterval time.Duration = 2 * time.Second
 )
 
 // Represents an app.
