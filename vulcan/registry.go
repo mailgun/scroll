@@ -13,7 +13,7 @@ const (
 
 	// If vulcand registration is enabled, the app will be re-registering itself every
 	// this amount of seconds.
-	endpointTTL = 60 // seconds
+	endpointTTL = 5 // seconds
 )
 
 type Registry struct {

@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -25,6 +26,9 @@ const (
 
 	// Suggested max allowed amount of entries that batch APIs can accept (e.g. batch uploads).
 	MaxBatchSize int = 1000
+
+	// Interval between Vulcand heartbeats (if the app if configured to register in it).
+	defaultRegisterInterval time.Duration = 2 * time.Second
 )
 
 // Represents an app.
@@ -146,9 +150,22 @@ func (app *App) Run() error {
 
 	if app.registry != nil {
 		go func() {
+			// heartbeat can be stopped/resumed on USR1 signal
+			heartbeatChan := make(chan os.Signal, 1)
+			signal.Notify(heartbeatChan, syscall.SIGUSR1)
+
 			for {
-				app.registerEndpoint()
-				time.Sleep(60 * time.Second)
+				select {
+				// this will proceed to the "default" without blocking if there is no signal
+				case s := <-heartbeatChan:
+					log.Infof("Got signal: %v, pausing heartbeat", s)
+					// now it blocks until another signal comes
+					<-heartbeatChan
+					log.Infof("Resuming heartbeat")
+				default:
+					app.registerEndpoint()
+					time.Sleep(defaultRegisterInterval)
+				}
 			}
 		}()
 	}
