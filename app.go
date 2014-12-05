@@ -19,16 +19,16 @@ import (
 
 const (
 	// Suggested result set limit for APIs that may return many entries (e.g. paging).
-	DefaultLimit int = 100
+	DefaultLimit = 100
 
 	// Suggested max allowed result set limit for APIs that may return many entries (e.g. paging).
-	MaxLimit int = 10000
+	MaxLimit = 10000
 
 	// Suggested max allowed amount of entries that batch APIs can accept (e.g. batch uploads).
-	MaxBatchSize int = 1000
+	MaxBatchSize = 1000
 
 	// Interval between Vulcand heartbeats (if the app if configured to register in it).
-	defaultRegisterInterval time.Duration = 2 * time.Second
+	defaultRegisterInterval = 2 * time.Second
 )
 
 // Represents an app.
