@@ -196,6 +196,11 @@ func (app *App) registerEndpoint() {
 		return
 	}
 
+	if err := app.registry.RegisterServer(endpoint); err != nil {
+		log.Errorf("Failed to register an endpoint: %v %v", endpoint, err)
+		return
+	}
+
 	log.Infof("Registered: %v", endpoint)
 }
 
@@ -222,6 +227,11 @@ func (app *App) registerLocationForHost(methods []string, path, host string, mid
 
 	if err := app.registry.RegisterLocation(location); err != nil {
 		log.Errorf("Failed to register a location: %v %v", location, err)
+		return
+	}
+
+	if err := app.registry.RegisterFrontend(location); err != nil {
+		log.Errorf("Failed to register a frontend: %v %v", location, err)
 		return
 	}
 

@@ -1,6 +1,7 @@
 package vulcan
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
@@ -27,6 +28,22 @@ func NewEndpoint(name, listenIP string, listenPort int) (*Endpoint, error) {
 		Name: name,
 		URL:  url,
 	}, nil
+}
+
+func (e *Endpoint) BackendSpec() (string, error) {
+	out, err := json.Marshal(&backend{Type: "http"})
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
+}
+
+func (e *Endpoint) ServerSpec() (string, error) {
+	out, err := json.Marshal(&server{URL: e.URL})
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
 }
 
 func (e *Endpoint) String() string {
@@ -60,4 +77,12 @@ func makeEndpointURL(listenIP string, listenPort int) (string, error) {
 	}
 
 	return fmt.Sprintf("http://%v:%v", privateIPs[0], listenPort), nil
+}
+
+type backend struct {
+	Type string
+}
+
+type server struct {
+	URL string
 }

@@ -1,6 +1,7 @@
 package vulcan
 
 import (
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -16,6 +17,8 @@ type Location struct {
 	ID          string
 	Host        string
 	Path        string
+	URLPath     string
+	Methods     []string
 	Upstream    string
 	Options     LocationOptions
 	Middlewares []middleware.Middleware
@@ -35,6 +38,8 @@ func NewLocation(host string, methods []string, path, upstream string, middlewar
 	return &Location{
 		ID:       makeLocationID(methods, path),
 		Host:     host,
+		Methods:  methods,
+		URLPath:  path,
 		Path:     makeLocationPath(methods, path),
 		Upstream: upstream,
 		Options: LocationOptions{
@@ -44,9 +49,33 @@ func NewLocation(host string, methods []string, path, upstream string, middlewar
 	}
 }
 
+func (l *Location) Spec() (string, error) {
+	f := frontend{
+		Type:      "http",
+		BackendId: l.Upstream,
+		Route:     l.Route(),
+		Settings:  l.Options,
+	}
+	bytes, err := json.Marshal(f)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal %v: %v", l.Options, err)
+	}
+	return string(bytes), nil
+}
+
 func (l *Location) String() string {
 	return fmt.Sprintf("Location(ID=%v, Host=%v, Path=%v, Upstream=%v, Options=%v, Middlewares=%v)",
 		l.ID, l.Host, l.Path, l.Upstream, l.Options, l.Middlewares)
+}
+
+func (l *Location) Route() string {
+	var methodExpr string
+	if len(l.Methods) == 1 {
+		methodExpr = fmt.Sprintf(`Method("%s")`, l.Methods[0])
+	} else {
+		methodExpr = fmt.Sprintf(`MethodRegexp("%s")`, strings.Join(l.Methods, "|"))
+	}
+	return fmt.Sprintf(`Host("%s") && %s && Path("%s")`, l.Host, methodExpr, l.URLPath)
 }
 
 func makeLocationID(methods []string, path string) string {
@@ -66,4 +95,11 @@ func convertPath(path string) string {
 	// strip everything between : (including) and } (excluding)
 	path = regexp.MustCompile("(:[^}]+)").ReplaceAllString(path, "")
 	return strings.Replace(strings.Replace(path, "{", "<", -1), "}", ">", -1)
+}
+
+type frontend struct {
+	Type      string
+	BackendId string
+	Route     string
+	Settings  LocationOptions
 }
