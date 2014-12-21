@@ -90,13 +90,18 @@ func (r *Registry) RegisterLocation(l *Location) error {
 	return nil
 }
 
-func (r *Registry) RegisterServer(e *Endpoint) error {
+func (r *Registry) RegisterBackend(e *Endpoint) error {
 	bk := fmt.Sprintf(backendKey+"/backend", e.Name)
 	bkSpec, err := e.BackendSpec()
 	if err != nil {
 		return err
 	}
-	if _, err := r.etcdClient.Set(bk, bkSpec, 0); err != nil {
+	_, err = r.etcdClient.Set(bk, bkSpec, 0)
+	return err
+}
+
+func (r *Registry) RegisterServer(e *Endpoint) error {
+	if err := r.RegisterBackend(e); err != nil {
 		return err
 	}
 	sSpec, err := e.ServerSpec()
