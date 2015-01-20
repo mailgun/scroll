@@ -16,8 +16,10 @@ func TestMultiMasterStrategy(t *testing.T) {
 }
 
 type MultiMasterSuite struct {
-	client   *etcd.Client
-	registry *MultiMasterStrategy
+	client              *etcd.Client
+	registry            *MultiMasterStrategy
+	appRegistration     *AppRegistration
+	handlerRegistration *HandlerRegistration
 }
 
 var _ = Suite(&MultiMasterSuite{})
@@ -27,11 +29,19 @@ func (s *MultiMasterSuite) SetUpSuite(c *C) {
 	s.client = etcd.NewClient(machines)
 	s.client.Delete("customkey", true)
 
-	s.registry = NewMultiMasterStrategy("customkey", 15, s.client)
+	s.registry = NewMultiMasterStrategy("customkey", 15)
+	s.appRegistration = &AppRegistration{Name: "name", Host: "host", Port: 12345}
+	s.handlerRegistration = &HandlerRegistration{
+		Name:        "name",
+		Host:        "host",
+		Path:        "/path/to/server",
+		Methods:     []string{"PUT"},
+		Middlewares: []middleware.Middleware{middleware.Middleware{Type: "test", ID: "id", Spec: "hi"}},
+	}
 }
 
 func (s *MultiMasterSuite) TestRegisterAppCreatesBackend(c *C) {
-	_ = s.registry.RegisterApp("name", "host", 12345)
+	_ = s.registry.RegisterApp(s.appRegistration)
 	backend, err := s.client.Get("customkey/backends/name/backend", false, false)
 
 	c.Assert(err, IsNil)
@@ -40,7 +50,7 @@ func (s *MultiMasterSuite) TestRegisterAppCreatesBackend(c *C) {
 }
 
 func (s *MultiMasterSuite) TestRegisterAppCreatesServer(c *C) {
-	_ = s.registry.RegisterApp("name", "host", 12345)
+	_ = s.registry.RegisterApp(s.appRegistration)
 
 	host, err := os.Hostname()
 	key := fmt.Sprintf("customkey/backends/name/servers/%s_12345", host)
@@ -52,9 +62,7 @@ func (s *MultiMasterSuite) TestRegisterAppCreatesServer(c *C) {
 }
 
 func (s *MultiMasterSuite) TestRegisterHandlerCreatesFrontend(c *C) {
-	methods := []string{"PUT"}
-	middlewares := []middleware.Middleware{}
-	_ = s.registry.RegisterHandler("name", "host", "/path/to/server", methods, middlewares)
+	_ = s.registry.RegisterHandler(s.handlerRegistration)
 
 	frontend, err := s.client.Get("customkey/frontends/host.put.path.to.server/frontend", false, false)
 
@@ -65,10 +73,7 @@ func (s *MultiMasterSuite) TestRegisterHandlerCreatesFrontend(c *C) {
 }
 
 func (s *MultiMasterSuite) TestRegisterHandlerCreatesMiddlewares(c *C) {
-	methods := []string{"PUT"}
-	middlewares := []middleware.Middleware{}
-	middlewares = append(middlewares, middleware.Middleware{Type: "test", ID: "id", Spec: "hi"})
-	_ = s.registry.RegisterHandler("name", "host", "/path/to/server", methods, middlewares)
+	_ = s.registry.RegisterHandler(s.handlerRegistration)
 
 	frontend, err := s.client.Get("customkey/frontends/host.put.path.to.server/middlewares/id", false, false)
 

@@ -6,7 +6,6 @@ import (
 
 	"github.com/mailgun/go-etcd/etcd"
 	"github.com/mailgun/scroll/vulcan"
-	"github.com/mailgun/scroll/vulcan/middleware"
 )
 
 const (
@@ -31,13 +30,20 @@ type SingleMasterStrategy struct {
 }
 
 // NewSingleMasterStrategy creates a new SingleMasterStrategy from the provided etcd Client.
-func NewSingleMasterStrategy(key string, ttl uint64, client *etcd.Client) *SingleMasterStrategy {
-	return &SingleMasterStrategy{Key: key, TTL: ttl, Client: client, IsMaster: false}
+func NewSingleMasterStrategy(key string, ttl uint64) *SingleMasterStrategy {
+	client := etcd.NewClient([]string{"http://127.0.0.1:4001"})
+
+	return &SingleMasterStrategy{
+		Key:      key,
+		TTL:      ttl,
+		Client:   client,
+		IsMaster: false,
+	}
 }
 
 // RegisterApp adds a new backend and a single server with Vulcand.
-func (s *SingleMasterStrategy) RegisterApp(name string, host string, port int) error {
-	endpoint, err := vulcan.NewEndpointWithID(masterNodeID, name, host, port)
+func (s *SingleMasterStrategy) RegisterApp(registration *AppRegistration) error {
+	endpoint, err := vulcan.NewEndpointWithID(masterNodeID, registration.Name, registration.Host, registration.Port)
 	if err != nil {
 		return nil
 	}
@@ -113,8 +119,8 @@ func (s *SingleMasterStrategy) maintainMasterRole(endpoint *vulcan.Endpoint) err
 }
 
 // RegisterHandler registers the frontends and middlewares with Vulcand.
-func (s *SingleMasterStrategy) RegisterHandler(name string, host string, path string, methods []string, middlewares []middleware.Middleware) error {
-	location := vulcan.NewLocation(host, methods, path, name, middlewares)
+func (s *SingleMasterStrategy) RegisterHandler(registration *HandlerRegistration) error {
+	location := vulcan.NewLocation(registration.Host, registration.Methods, registration.Path, registration.Name, registration.Middlewares)
 	err := s.registerFrontend(location)
 	if err != nil {
 		return err

@@ -1,10 +1,6 @@
 package registry
 
-import (
-	"github.com/mailgun/go-etcd/etcd"
-	"github.com/mailgun/scroll/vulcan"
-	"github.com/mailgun/scroll/vulcan/middleware"
-)
+import "github.com/mailgun/scroll/vulcan"
 
 /*
 MultiMasterStrategy is an implementation of RegistrationStrategy in which
@@ -17,15 +13,15 @@ type MultiMasterStrategy struct {
 }
 
 // NewMultiMasterStrategy creates a new MultiMasterStrategy from the provided etcd Client.
-func NewMultiMasterStrategy(key string, ttl uint64, client *etcd.Client) *MultiMasterStrategy {
-	singleMasterStrategy := NewSingleMasterStrategy(key, ttl, client)
+func NewMultiMasterStrategy(key string, ttl uint64) *MultiMasterStrategy {
+	singleMasterStrategy := NewSingleMasterStrategy(key, ttl)
 
 	return &MultiMasterStrategy{innerStrategy: singleMasterStrategy}
 }
 
 // RegisterApp adds a new backend and a single server with Vulcand.
-func (s *MultiMasterStrategy) RegisterApp(name string, host string, port int) error {
-	endpoint, err := vulcan.NewEndpoint(name, host, port)
+func (s *MultiMasterStrategy) RegisterApp(registration *AppRegistration) error {
+	endpoint, err := vulcan.NewEndpoint(registration.Name, registration.Host, registration.Port)
 	if err != nil {
 		return nil
 	}
@@ -44,6 +40,6 @@ func (s *MultiMasterStrategy) RegisterApp(name string, host string, port int) er
 }
 
 // RegisterHandler registers the frontends and middlewares with Vulcand.
-func (s *MultiMasterStrategy) RegisterHandler(name string, host string, path string, methods []string, middlewares []middleware.Middleware) error {
-	return s.innerStrategy.RegisterHandler(name, host, path, methods, middlewares)
+func (s *MultiMasterStrategy) RegisterHandler(registration *HandlerRegistration) error {
+	return s.innerStrategy.RegisterHandler(registration)
 }

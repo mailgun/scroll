@@ -14,8 +14,11 @@ func TestSingleMaster(t *testing.T) {
 }
 
 type SingleMasterSuite struct {
-	client   *etcd.Client
-	registry *SingleMasterStrategy
+	client              *etcd.Client
+	registry            *SingleMasterStrategy
+	masterRegistration  *AppRegistration
+	slaveRegistration   *AppRegistration
+	handlerRegistration *HandlerRegistration
 }
 
 var _ = Suite(&SingleMasterSuite{})
@@ -23,7 +26,16 @@ var _ = Suite(&SingleMasterSuite{})
 func (s *SingleMasterSuite) SetUpSuite(c *C) {
 	machines := []string{"http://127.0.0.1:4001"}
 	s.client = etcd.NewClient(machines)
-	s.registry = NewSingleMasterStrategy("customkey", 15, s.client)
+	s.registry = NewSingleMasterStrategy("customkey", 15)
+	s.masterRegistration = &AppRegistration{Name: "name", Host: "master", Port: 12345}
+	s.slaveRegistration = &AppRegistration{Name: "name", Host: "slave", Port: 67890}
+	s.handlerRegistration = &HandlerRegistration{
+		Name:        "name",
+		Host:        "host",
+		Path:        "/path/to/server",
+		Methods:     []string{"PUT"},
+		Middlewares: []middleware.Middleware{middleware.Middleware{Type: "test", ID: "id", Spec: "hi"}},
+	}
 }
 
 func (s *SingleMasterSuite) SetUpTest(c *C) {
@@ -31,7 +43,7 @@ func (s *SingleMasterSuite) SetUpTest(c *C) {
 }
 
 func (s *SingleMasterSuite) TestRegisterAppCreatesBackend(c *C) {
-	_ = s.registry.RegisterApp("name", "host", 12345)
+	_ = s.registry.RegisterApp(s.masterRegistration)
 	backend, err := s.client.Get("customkey/backends/name/backend", false, false)
 
 	c.Assert(err, IsNil)
@@ -40,19 +52,19 @@ func (s *SingleMasterSuite) TestRegisterAppCreatesBackend(c *C) {
 }
 
 func (s *SingleMasterSuite) TestMasterServerRegistration(c *C) {
-	_ = s.registry.RegisterApp("name", "host", 12345)
+	_ = s.registry.RegisterApp(s.masterRegistration)
 
 	server, err := s.client.Get("customkey/backends/name/servers/master", false, false)
 
 	c.Assert(err, IsNil)
-	c.Assert(server.Node.Value, Equals, `{"URL":"http://host:12345"}`)
+	c.Assert(server.Node.Value, Equals, `{"URL":"http://master:12345"}`)
 	c.Assert(server.Node.TTL, Equals, int64(15))
 }
 
 func (s *SingleMasterSuite) TestSlaveServerRegistration(c *C) {
-	master := NewSingleMasterStrategy("customkey", 15, s.client)
-	master.RegisterApp("name", "master", 12345)
-	_ = s.registry.RegisterApp("name", "slave", 67890)
+	master := NewSingleMasterStrategy("customkey", 15)
+	master.RegisterApp(s.masterRegistration)
+	s.registry.RegisterApp(s.slaveRegistration)
 
 	server, err := s.client.Get("customkey/backends/name/servers/master", false, false)
 
@@ -62,14 +74,14 @@ func (s *SingleMasterSuite) TestSlaveServerRegistration(c *C) {
 
 func (s *SingleMasterSuite) TestSlaveServerBecomesMaster(c *C) {
 	// Create a master and slave.
-	master := NewSingleMasterStrategy("customkey", 15, s.client)
-	_ = master.RegisterApp("name", "master", 12345)
-	_ = s.registry.RegisterApp("name", "slave", 67890)
+	master := NewSingleMasterStrategy("customkey", 15)
+	master.RegisterApp(s.masterRegistration)
+	s.registry.RegisterApp(s.slaveRegistration)
 
 	// Remove the old master and re-register the slave.
 	_, err := s.client.Delete("customkey/backends/name/servers/master", false)
-	_ = s.registry.RegisterApp("name", "slave", 67890)
-	_ = master.RegisterApp("name", "master", 67890)
+	_ = s.registry.RegisterApp(s.slaveRegistration)
+	_ = master.RegisterApp(s.masterRegistration)
 
 	server, err := s.client.Get("customkey/backends/name/servers/master", false, false)
 
@@ -80,9 +92,7 @@ func (s *SingleMasterSuite) TestSlaveServerBecomesMaster(c *C) {
 }
 
 func (s *SingleMasterSuite) TestRegisterHandlerCreatesFrontend(c *C) {
-	methods := []string{"PUT"}
-	middlewares := []middleware.Middleware{}
-	_ = s.registry.RegisterHandler("name", "host", "/path/to/server", methods, middlewares)
+	_ = s.registry.RegisterHandler(s.handlerRegistration)
 
 	frontend, err := s.client.Get("customkey/frontends/host.put.path.to.server/frontend", false, false)
 
@@ -93,10 +103,7 @@ func (s *SingleMasterSuite) TestRegisterHandlerCreatesFrontend(c *C) {
 }
 
 func (s *SingleMasterSuite) TestRegisterHandlerCreatesMiddlewares(c *C) {
-	methods := []string{"PUT"}
-	middlewares := []middleware.Middleware{}
-	middlewares = append(middlewares, middleware.Middleware{Type: "test", ID: "id", Spec: "hi"})
-	_ = s.registry.RegisterHandler("name", "host", "/path/to/server", methods, middlewares)
+	_ = s.registry.RegisterHandler(s.handlerRegistration)
 
 	frontend, err := s.client.Get("customkey/frontends/host.put.path.to.server/middlewares/id", false, false)
 
