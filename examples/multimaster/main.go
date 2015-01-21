@@ -21,11 +21,16 @@ func init() {
 func main() {
 	name := "multimaster"
 
+	registry, err := registry.NewMultiMasterRegistry("scrollexamples/multimaster", port, 5)
+	if err != nil {
+		return
+	}
+
 	appConfig := scroll.AppConfig{
 		Name:             name,
 		ListenIP:         host,
 		ListenPort:       port,
-		Registry:         registry.NewMultiMasterRegistry("scrollexamples/multimaster", 5),
+		Registry:         registry,
 		PublicAPIHost:    "public.local",
 		ProtectedAPIHost: "private.local",
 	}

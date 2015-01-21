@@ -9,24 +9,24 @@ import (
 	. "gopkg.in/check.v1"
 )
 
-func TestSingleMasterRegistry(t *testing.T) {
+func TestGroupMasterRegistry(t *testing.T) {
 	TestingT(t)
 }
 
-type SingleMasterSuite struct {
+type GroupMasterSuite struct {
 	client              *etcd.Client
-	registry            *SingleMasterRegistry
+	registry            *GroupMasterRegistry
 	masterRegistration  *AppRegistration
 	slaveRegistration   *AppRegistration
 	handlerRegistration *HandlerRegistration
 }
 
-var _ = Suite(&SingleMasterSuite{})
+var _ = Suite(&GroupMasterSuite{})
 
-func (s *SingleMasterSuite) SetUpSuite(c *C) {
+func (s *GroupMasterSuite) SetUpSuite(c *C) {
 	machines := []string{"http://127.0.0.1:4001"}
 	s.client = etcd.NewClient(machines)
-	s.registry = NewSingleMasterRegistry("customkey", 15)
+	s.registry = NewGroupMasterRegistry("customkey", "groupid", 15)
 	s.masterRegistration = &AppRegistration{Name: "name", Host: "master", Port: 12345}
 	s.slaveRegistration = &AppRegistration{Name: "name", Host: "slave", Port: 67890}
 	s.handlerRegistration = &HandlerRegistration{
@@ -38,11 +38,11 @@ func (s *SingleMasterSuite) SetUpSuite(c *C) {
 	}
 }
 
-func (s *SingleMasterSuite) SetUpTest(c *C) {
+func (s *GroupMasterSuite) SetUpTest(c *C) {
 	s.client.Delete("customkey", true)
 }
 
-func (s *SingleMasterSuite) TestRegisterAppCreatesBackend(c *C) {
+func (s *GroupMasterSuite) TestRegisterAppCreatesBackend(c *C) {
 	_ = s.registry.RegisterApp(s.masterRegistration)
 	backend, err := s.client.Get("customkey/backends/name/backend", false, false)
 
@@ -51,47 +51,47 @@ func (s *SingleMasterSuite) TestRegisterAppCreatesBackend(c *C) {
 	c.Assert(backend.Node.TTL, Equals, int64(0))
 }
 
-func (s *SingleMasterSuite) TestMasterServerRegistration(c *C) {
+func (s *GroupMasterSuite) TestMasterServerRegistration(c *C) {
 	_ = s.registry.RegisterApp(s.masterRegistration)
 
-	server, err := s.client.Get("customkey/backends/name/servers/master", false, false)
+	server, err := s.client.Get("customkey/backends/name/servers/groupid", false, false)
 
 	c.Assert(err, IsNil)
 	c.Assert(server.Node.Value, Equals, `{"URL":"http://master:12345"}`)
 	c.Assert(server.Node.TTL, Equals, int64(15))
 }
 
-func (s *SingleMasterSuite) TestSlaveServerRegistration(c *C) {
-	master := NewSingleMasterRegistry("customkey", 15)
+func (s *GroupMasterSuite) TestSlaveServerRegistration(c *C) {
+	master := NewGroupMasterRegistry("customkey", "groupid", 15)
 	master.RegisterApp(s.masterRegistration)
 	s.registry.RegisterApp(s.slaveRegistration)
 
-	server, err := s.client.Get("customkey/backends/name/servers/master", false, false)
+	server, err := s.client.Get("customkey/backends/name/servers/groupid", false, false)
 
 	c.Assert(err, IsNil)
 	c.Assert(server.Node.Value, Equals, `{"URL":"http://master:12345"}`)
 }
 
-func (s *SingleMasterSuite) TestSlaveServerBecomesMaster(c *C) {
+func (s *GroupMasterSuite) TestSlaveServerBecomesMaster(c *C) {
 	// Create a master and slave.
-	master := NewSingleMasterRegistry("customkey", 15)
+	master := NewGroupMasterRegistry("customkey", "groupid", 15)
 	master.RegisterApp(s.masterRegistration)
 	s.registry.RegisterApp(s.slaveRegistration)
 
 	// Remove the old master and re-register the slave.
-	_, err := s.client.Delete("customkey/backends/name/servers/master", false)
+	_, err := s.client.Delete("customkey/backends/name/servers/groupid", false)
 	_ = s.registry.RegisterApp(s.slaveRegistration)
 	_ = master.RegisterApp(s.masterRegistration)
 
-	server, err := s.client.Get("customkey/backends/name/servers/master", false, false)
+	server, err := s.client.Get("customkey/backends/name/servers/groupid", false, false)
 
 	c.Assert(err, IsNil)
 	c.Assert(master.IsMaster, Equals, false)
-	// c.Assert(s.registry.IsMaster, Equals, true)
+	c.Assert(s.registry.IsMaster, Equals, true)
 	c.Assert(server.Node.Value, Equals, `{"URL":"http://slave:67890"}`)
 }
 
-func (s *SingleMasterSuite) TestRegisterHandlerCreatesFrontend(c *C) {
+func (s *GroupMasterSuite) TestRegisterHandlerCreatesFrontend(c *C) {
 	_ = s.registry.RegisterHandler(s.handlerRegistration)
 
 	frontend, err := s.client.Get("customkey/frontends/host.put.path.to.server/frontend", false, false)
@@ -102,7 +102,7 @@ func (s *SingleMasterSuite) TestRegisterHandlerCreatesFrontend(c *C) {
 	c.Assert(frontend.Node.TTL, Equals, int64(0))
 }
 
-func (s *SingleMasterSuite) TestRegisterHandlerCreatesMiddlewares(c *C) {
+func (s *GroupMasterSuite) TestRegisterHandlerCreatesMiddlewares(c *C) {
 	_ = s.registry.RegisterHandler(s.handlerRegistration)
 
 	frontend, err := s.client.Get("customkey/frontends/host.put.path.to.server/middlewares/id", false, false)

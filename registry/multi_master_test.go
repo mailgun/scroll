@@ -29,7 +29,7 @@ func (s *MultiMasterSuite) SetUpSuite(c *C) {
 	s.client = etcd.NewClient(machines)
 	s.client.Delete("customkey", true)
 
-	s.registry = NewMultiMasterRegistry("customkey", 15)
+	s.registry, _ = NewMultiMasterRegistry("customkey", 12345, 15)
 	s.appRegistration = &AppRegistration{Name: "name", Host: "host", Port: 12345}
 	s.handlerRegistration = &HandlerRegistration{
 		Name:        "name",
