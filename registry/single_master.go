@@ -17,23 +17,22 @@ const (
 )
 
 /*
-SingleMasterStrategy is an implementation of RegistrationStrategy that uses a
-single master instance of an application to handle requests. When the master
-instance fails, request handling will automatically failover to a slave
-instance.
+SingleMasterRegistry is an implementation of Registry that uses a single master
+instance of an application to handle requests. When the master instance fails,
+request handling will automatically failover to a slave instance.
 */
-type SingleMasterStrategy struct {
+type SingleMasterRegistry struct {
 	Key      string
 	TTL      uint64
 	IsMaster bool
 	Client   *etcd.Client
 }
 
-// NewSingleMasterStrategy creates a new SingleMasterStrategy from the provided etcd Client.
-func NewSingleMasterStrategy(key string, ttl uint64) *SingleMasterStrategy {
+// NewSingleMasterRegistry creates a new SingleMasterRegistry from the provided etcd Client.
+func NewSingleMasterRegistry(key string, ttl uint64) *SingleMasterRegistry {
 	client := etcd.NewClient([]string{"http://127.0.0.1:4001"})
 
-	return &SingleMasterStrategy{
+	return &SingleMasterRegistry{
 		Key:      key,
 		TTL:      ttl,
 		Client:   client,
@@ -42,7 +41,7 @@ func NewSingleMasterStrategy(key string, ttl uint64) *SingleMasterStrategy {
 }
 
 // RegisterApp adds a new backend and a single server with Vulcand.
-func (s *SingleMasterStrategy) RegisterApp(registration *AppRegistration) error {
+func (s *SingleMasterRegistry) RegisterApp(registration *AppRegistration) error {
 	endpoint, err := vulcan.NewEndpointWithID(masterNodeID, registration.Name, registration.Host, registration.Port)
 	if err != nil {
 		return nil
@@ -61,7 +60,7 @@ func (s *SingleMasterStrategy) RegisterApp(registration *AppRegistration) error 
 	return nil
 }
 
-func (s *SingleMasterStrategy) registerBackend(endpoint *vulcan.Endpoint) error {
+func (s *SingleMasterRegistry) registerBackend(endpoint *vulcan.Endpoint) error {
 	key := fmt.Sprintf(backendKey, s.Key, endpoint.Name)
 	backend, err := endpoint.BackendSpec()
 	if err != nil {
@@ -76,7 +75,7 @@ func (s *SingleMasterStrategy) registerBackend(endpoint *vulcan.Endpoint) error 
 	return err
 }
 
-func (s *SingleMasterStrategy) registerServer(endpoint *vulcan.Endpoint) error {
+func (s *SingleMasterRegistry) registerServer(endpoint *vulcan.Endpoint) error {
 	if s.IsMaster {
 		return s.maintainMasterRole(endpoint)
 	}
@@ -84,7 +83,7 @@ func (s *SingleMasterStrategy) registerServer(endpoint *vulcan.Endpoint) error {
 	return s.assumeMasterRole(endpoint)
 }
 
-func (s *SingleMasterStrategy) assumeMasterRole(endpoint *vulcan.Endpoint) error {
+func (s *SingleMasterRegistry) assumeMasterRole(endpoint *vulcan.Endpoint) error {
 	key := fmt.Sprintf(serverKey, s.Key, endpoint.Name, endpoint.ID)
 	server, err := endpoint.ServerSpec()
 	if err != nil {
@@ -101,7 +100,7 @@ func (s *SingleMasterStrategy) assumeMasterRole(endpoint *vulcan.Endpoint) error
 	return nil
 }
 
-func (s *SingleMasterStrategy) maintainMasterRole(endpoint *vulcan.Endpoint) error {
+func (s *SingleMasterRegistry) maintainMasterRole(endpoint *vulcan.Endpoint) error {
 	key := fmt.Sprintf(serverKey, s.Key, endpoint.Name, endpoint.ID)
 	server, err := endpoint.ServerSpec()
 	if err != nil {
@@ -119,7 +118,7 @@ func (s *SingleMasterStrategy) maintainMasterRole(endpoint *vulcan.Endpoint) err
 }
 
 // RegisterHandler registers the frontends and middlewares with Vulcand.
-func (s *SingleMasterStrategy) RegisterHandler(registration *HandlerRegistration) error {
+func (s *SingleMasterRegistry) RegisterHandler(registration *HandlerRegistration) error {
 	location := vulcan.NewLocation(registration.Host, registration.Methods, registration.Path, registration.Name, registration.Middlewares)
 	err := s.registerFrontend(location)
 	if err != nil {
@@ -134,7 +133,7 @@ func (s *SingleMasterStrategy) RegisterHandler(registration *HandlerRegistration
 	return nil
 }
 
-func (s *SingleMasterStrategy) registerFrontend(location *vulcan.Location) error {
+func (s *SingleMasterRegistry) registerFrontend(location *vulcan.Location) error {
 	key := fmt.Sprintf(frontendKey, s.Key, location.Host, location.ID)
 	frontend, err := location.Spec()
 	if err != nil {
@@ -149,7 +148,7 @@ func (s *SingleMasterStrategy) registerFrontend(location *vulcan.Location) error
 	return nil
 }
 
-func (s *SingleMasterStrategy) registerMiddleware(location *vulcan.Location) error {
+func (s *SingleMasterRegistry) registerMiddleware(location *vulcan.Location) error {
 	for i, m := range location.Middlewares {
 		m.Priority = i
 

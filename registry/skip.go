@@ -5,18 +5,18 @@ import (
 	"github.com/mailgun/scroll/vulcan/middleware"
 )
 
-// SkipStrategy is an implementation of Strategy for applications that do not need service discovery.
-type SkipStrategy struct {
+// SkipRegistry is an implementation of Registry for applications that do not need service discovery.
+type SkipRegistry struct {
 }
 
 // RegisterApp is a no-op.
-func (s *SkipStrategy) RegisterApp(name string, host string, port int) error {
-	log.Infof("Skipping application registration for NoRegistrationStrategy registry")
+func (s *SkipRegistry) RegisterApp(name string, host string, port int) error {
+	log.Infof("Skipping application registration for SkipRegistry")
 	return nil
 }
 
 // RegisterHandler is a no-op.
-func (s *SkipStrategy) RegisterHandler(name string, host string, path string, methods []string, middlewares []middleware.Middleware) error {
-	log.Infof("Skipping handler registration for NoRegistrationStrategy registry")
+func (s *SkipRegistry) RegisterHandler(name string, host string, path string, methods []string, middlewares []middleware.Middleware) error {
+	log.Infof("Skipping handler registration for SkipRegistry")
 	return nil
 }

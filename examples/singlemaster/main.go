@@ -25,7 +25,7 @@ func main() {
 		Name:             name,
 		ListenIP:         host,
 		ListenPort:       port,
-		Registry:         registry.NewSingleMasterStrategy("scrollexamples/singlemaster", 5),
+		Registry:         registry.NewSingleMasterRegistry("scrollexamples/singlemaster", 5),
 		PublicAPIHost:    "public.local",
 		ProtectedAPIHost: "private.local",
 	}

@@ -60,7 +60,7 @@ type AppConfig struct {
 
 	// whether to register the app's endpoint and handlers in vulcan
 	Register bool
-	Registry registry.RegistrationStrategy
+	Registry registry.Registry
 	Interval time.Duration
 
 	// metrics service used for emitting the app's real-time metrics

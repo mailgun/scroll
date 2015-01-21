@@ -9,13 +9,13 @@ import (
 	. "gopkg.in/check.v1"
 )
 
-func TestSingleMaster(t *testing.T) {
+func TestSingleMasterRegistry(t *testing.T) {
 	TestingT(t)
 }
 
 type SingleMasterSuite struct {
 	client              *etcd.Client
-	registry            *SingleMasterStrategy
+	registry            *SingleMasterRegistry
 	masterRegistration  *AppRegistration
 	slaveRegistration   *AppRegistration
 	handlerRegistration *HandlerRegistration
@@ -26,7 +26,7 @@ var _ = Suite(&SingleMasterSuite{})
 func (s *SingleMasterSuite) SetUpSuite(c *C) {
 	machines := []string{"http://127.0.0.1:4001"}
 	s.client = etcd.NewClient(machines)
-	s.registry = NewSingleMasterStrategy("customkey", 15)
+	s.registry = NewSingleMasterRegistry("customkey", 15)
 	s.masterRegistration = &AppRegistration{Name: "name", Host: "master", Port: 12345}
 	s.slaveRegistration = &AppRegistration{Name: "name", Host: "slave", Port: 67890}
 	s.handlerRegistration = &HandlerRegistration{
@@ -62,7 +62,7 @@ func (s *SingleMasterSuite) TestMasterServerRegistration(c *C) {
 }
 
 func (s *SingleMasterSuite) TestSlaveServerRegistration(c *C) {
-	master := NewSingleMasterStrategy("customkey", 15)
+	master := NewSingleMasterRegistry("customkey", 15)
 	master.RegisterApp(s.masterRegistration)
 	s.registry.RegisterApp(s.slaveRegistration)
 
@@ -74,7 +74,7 @@ func (s *SingleMasterSuite) TestSlaveServerRegistration(c *C) {
 
 func (s *SingleMasterSuite) TestSlaveServerBecomesMaster(c *C) {
 	// Create a master and slave.
-	master := NewSingleMasterStrategy("customkey", 15)
+	master := NewSingleMasterRegistry("customkey", 15)
 	master.RegisterApp(s.masterRegistration)
 	s.registry.RegisterApp(s.slaveRegistration)
 

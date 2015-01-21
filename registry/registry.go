@@ -22,24 +22,24 @@ type HandlerRegistration struct {
 	Middlewares []middleware.Middleware
 }
 
-// RegistrationStrategy is an interface that all built-in and user-defined registration strategies implement.
-type RegistrationStrategy interface {
+// Registry is an interface that all built-in and user-defined registries implement.
+type Registry interface {
 	RegisterApp(registration *AppRegistration) error
 	RegisterHandler(registration *HandlerRegistration) error
 }
 
-// Heartbeater periodically registers an application using the provided RegistrationStrategy.
+// Heartbeater periodically registers an application using the provided Registry.
 type Heartbeater struct {
 	Running      bool
 	ticker       *time.Ticker
 	registration *AppRegistration
-	strategy     RegistrationStrategy
+	registry     Registry
 	interval     time.Duration
 }
 
-// NewHeartbeater creates a Heartbeater from the provided app and strategy.
-func NewHeartbeater(registration *AppRegistration, strategy RegistrationStrategy, interval time.Duration) *Heartbeater {
-	return &Heartbeater{registration: registration, strategy: strategy, interval: interval}
+// NewHeartbeater creates a Heartbeater from the provided app and registry.
+func NewHeartbeater(registration *AppRegistration, registry Registry, interval time.Duration) *Heartbeater {
+	return &Heartbeater{registration: registration, registry: registry, interval: interval}
 }
 
 // Start begins sending heartbeats.
@@ -66,6 +66,6 @@ func (h *Heartbeater) Toggle() {
 
 func (h *Heartbeater) heartbeat() {
 	for _ = range h.ticker.C {
-		h.strategy.RegisterApp(h.registration)
+		h.registry.RegisterApp(h.registration)
 	}
 }

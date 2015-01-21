@@ -11,13 +11,13 @@ import (
 	. "gopkg.in/check.v1"
 )
 
-func TestMultiMasterStrategy(t *testing.T) {
+func TestMultiMasterRegistry(t *testing.T) {
 	TestingT(t)
 }
 
 type MultiMasterSuite struct {
 	client              *etcd.Client
-	registry            *MultiMasterStrategy
+	registry            *MultiMasterRegistry
 	appRegistration     *AppRegistration
 	handlerRegistration *HandlerRegistration
 }
@@ -29,7 +29,7 @@ func (s *MultiMasterSuite) SetUpSuite(c *C) {
 	s.client = etcd.NewClient(machines)
 	s.client.Delete("customkey", true)
 
-	s.registry = NewMultiMasterStrategy("customkey", 15)
+	s.registry = NewMultiMasterRegistry("customkey", 15)
 	s.appRegistration = &AppRegistration{Name: "name", Host: "host", Port: 12345}
 	s.handlerRegistration = &HandlerRegistration{
 		Name:        "name",

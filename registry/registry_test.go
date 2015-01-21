@@ -7,16 +7,16 @@ import (
 	. "gopkg.in/check.v1"
 )
 
-type FakeRegistrationStrategy struct {
+type FakeRegistry struct {
 	RegistrationCount int
 }
 
-func (s *FakeRegistrationStrategy) RegisterApp(registration *AppRegistration) error {
+func (s *FakeRegistry) RegisterApp(registration *AppRegistration) error {
 	s.RegistrationCount++
 	return nil
 }
 
-func (s *FakeRegistrationStrategy) RegisterHandler(registration *HandlerRegistration) error {
+func (s *FakeRegistry) RegisterHandler(registration *HandlerRegistration) error {
 	return nil
 }
 
@@ -31,16 +31,16 @@ var _ = Suite(&RegistrySuite{})
 
 func (s *RegistrySuite) TestStartRegistersAppAtInterval(c *C) {
 	registration := &AppRegistration{}
-	strategy := &FakeRegistrationStrategy{}
+	registry := &FakeRegistry{}
 
-	heartbeater := NewHeartbeater(registration, strategy)
+	heartbeater := NewHeartbeater(registration, registry, 10*time.Millisecond)
 	heartbeater.Start()
 	time.Sleep(30 * time.Millisecond)
 
-	c.Assert(strategy.RegistrationCount, Equals, 3)
+	c.Assert(registry.RegistrationCount, Equals, 3)
 
 	heartbeater.Stop()
 	time.Sleep(30 * time.Millisecond)
 
-	c.Assert(strategy.RegistrationCount, Equals, 3)
+	c.Assert(registry.RegistrationCount, Equals, 3)
 }

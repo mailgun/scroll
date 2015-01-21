@@ -10,15 +10,15 @@ import (
 	. "gopkg.in/check.v1"
 )
 
-type FakeRegistration struct {
+type FakeRegistry struct {
 	Registrations []*registry.HandlerRegistration
 }
 
-func (s *FakeRegistration) RegisterApp(registration *registry.AppRegistration) error {
+func (s *FakeRegistry) RegisterApp(registration *registry.AppRegistration) error {
 	return nil
 }
 
-func (s *FakeRegistration) RegisterHandler(registration *registry.HandlerRegistration) error {
+func (s *FakeRegistry) RegisterHandler(registration *registry.HandlerRegistration) error {
 	s.Registrations = append(s.Registrations, registration)
 	return nil
 }
@@ -30,13 +30,13 @@ func TestApp(t *testing.T) {
 type AppSuite struct {
 	config   AppConfig
 	app      *App
-	registry *FakeRegistration
+	registry *FakeRegistry
 }
 
 var _ = Suite(&AppSuite{})
 
 func (s *AppSuite) SetUpSuite(c *C) {
-	s.registry = &FakeRegistration{}
+	s.registry = &FakeRegistry{}
 	s.config = AppConfig{
 		Name:             "test",
 		ListenIP:         "0.0.0.0",
