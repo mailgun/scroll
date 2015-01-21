@@ -30,25 +30,38 @@ type RegistrationStrategy interface {
 
 // Heartbeater periodically registers an application using the provided RegistrationStrategy.
 type Heartbeater struct {
+	Running      bool
 	ticker       *time.Ticker
 	registration *AppRegistration
 	strategy     RegistrationStrategy
+	interval     time.Duration
 }
 
 // NewHeartbeater creates a Heartbeater from the provided app and strategy.
-func NewHeartbeater(registration *AppRegistration, strategy RegistrationStrategy) *Heartbeater {
-	return &Heartbeater{registration: registration, strategy: strategy}
+func NewHeartbeater(registration *AppRegistration, strategy RegistrationStrategy, interval time.Duration) *Heartbeater {
+	return &Heartbeater{registration: registration, strategy: strategy, interval: interval}
 }
 
 // Start begins sending heartbeats.
 func (h *Heartbeater) Start() {
-	h.ticker = time.NewTicker(10 * time.Millisecond)
+	h.Running = true
+	h.ticker = time.NewTicker(h.interval)
 	go h.heartbeat()
 }
 
 // Stop halts sending heartbeats.
 func (h *Heartbeater) Stop() {
 	h.ticker.Stop()
+	h.Running = false
+}
+
+// Toggle starts or stops the Heartbeater based on whether it is already running.
+func (h *Heartbeater) Toggle() {
+	if h.Running {
+		h.Stop()
+	} else {
+		h.Start()
+	}
 }
 
 func (h *Heartbeater) heartbeat() {
