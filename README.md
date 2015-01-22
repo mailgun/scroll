@@ -21,7 +21,7 @@ go get github.com/mailgun/scroll
 
 ## Getting Started
 
-Build an application with Scroll is simple. Here's a server that listens for GET or POST requests to `http://0.0.0.0:8080/resources/{resourceID}` and echoes back the resource ID provided in the URL.
+Building an application with Scroll is simple. Here's a server that listens for GET or POST requests to `http://0.0.0.0:8080/resources/{resourceID}` and echoes back the resource ID provided in the URL.
 
 ```go
 package main
