@@ -187,16 +187,16 @@ func (app *App) registerLocationForScope(methods []string, path string, scope Sc
 
 // registerLocationForHost registers a location for a specified hostname.
 func (app *App) registerLocationForHost(methods []string, path, host string, middlewares []middleware.Middleware) {
-	registration := &registry.HandlerRegistration{
+	r := &registry.HandlerRegistration{
 		Name:        app.Config.Name,
 		Host:        host,
 		Path:        path,
 		Methods:     methods,
 		Middlewares: middlewares,
 	}
-	app.Config.Registry.RegisterHandler(registration)
+	app.Config.Registry.RegisterHandler(r)
 
-	log.Infof("Registered: %v", registration)
+	log.Infof("Registered: %v", r)
 }
 
 // apiHostForScope is a helper that returns an appropriate API hostname for a provided scope.

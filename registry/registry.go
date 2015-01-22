@@ -24,8 +24,8 @@ type HandlerRegistration struct {
 
 // Registry is an interface that all built-in and user-defined registries implement.
 type Registry interface {
-	RegisterApp(registration *AppRegistration) error
-	RegisterHandler(registration *HandlerRegistration) error
+	RegisterApp(r *AppRegistration) error
+	RegisterHandler(r *HandlerRegistration) error
 }
 
 // Heartbeater periodically registers an application using the provided Registry.

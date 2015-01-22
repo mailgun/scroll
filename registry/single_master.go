@@ -34,11 +34,11 @@ func NewSingleMasterRegistry(key string, ttl uint64) *SingleMasterRegistry {
 }
 
 // RegisterApp adds a new backend and a single server with Vulcand.
-func (s *SingleMasterRegistry) RegisterApp(registration *AppRegistration) error {
-	return s.innerRegistry.RegisterApp(registration)
+func (s *SingleMasterRegistry) RegisterApp(r *AppRegistration) error {
+	return s.innerRegistry.RegisterApp(r)
 }
 
 // RegisterHandler registers the frontends and middlewares with Vulcand.
-func (s *SingleMasterRegistry) RegisterHandler(registration *HandlerRegistration) error {
-	return s.innerRegistry.RegisterHandler(registration)
+func (s *SingleMasterRegistry) RegisterHandler(r *HandlerRegistration) error {
+	return s.innerRegistry.RegisterHandler(r)
 }

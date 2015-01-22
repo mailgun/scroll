@@ -9,6 +9,7 @@ import (
 )
 
 const (
+	etcdMachine   = "http://127.0.0.1:4001"
 	frontendKey   = "%s/frontends/%s.%s/frontend"
 	middlewareKey = "%s/frontends/%s.%s/middlewares/%s"
 	backendKey    = "%s/backends/%s/backend"
@@ -31,7 +32,7 @@ type GroupMasterRegistry struct {
 
 // NewGroupMasterRegistry creates a new GroupMasterRegistry from the provided etcd Client.
 func NewGroupMasterRegistry(key string, group string, ttl uint64) *GroupMasterRegistry {
-	client := etcd.NewClient([]string{"http://127.0.0.1:4001"})
+	client := etcd.NewClient([]string{etcdMachine})
 
 	return &GroupMasterRegistry{
 		Key:      key,
@@ -79,13 +80,13 @@ func (s *GroupMasterRegistry) registerBackend(endpoint *vulcan.Endpoint) error {
 
 func (s *GroupMasterRegistry) registerServer(endpoint *vulcan.Endpoint) error {
 	if s.IsMaster {
-		return s.maintainMasterRole(endpoint)
+		return s.maintainLeader(endpoint)
 	}
 
-	return s.assumeMasterRole(endpoint)
+	return s.initLeader(endpoint)
 }
 
-func (s *GroupMasterRegistry) assumeMasterRole(endpoint *vulcan.Endpoint) error {
+func (s *GroupMasterRegistry) initLeader(endpoint *vulcan.Endpoint) error {
 	key := fmt.Sprintf(serverKey, s.Key, endpoint.Name, endpoint.ID)
 	server, err := endpoint.ServerSpec()
 	if err != nil {
@@ -102,7 +103,7 @@ func (s *GroupMasterRegistry) assumeMasterRole(endpoint *vulcan.Endpoint) error 
 	return nil
 }
 
-func (s *GroupMasterRegistry) maintainMasterRole(endpoint *vulcan.Endpoint) error {
+func (s *GroupMasterRegistry) maintainLeader(endpoint *vulcan.Endpoint) error {
 	key := fmt.Sprintf(serverKey, s.Key, endpoint.Name, endpoint.ID)
 	server, err := endpoint.ServerSpec()
 	if err != nil {

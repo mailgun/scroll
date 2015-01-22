@@ -11,12 +11,12 @@ type FakeRegistry struct {
 	RegistrationCount int
 }
 
-func (s *FakeRegistry) RegisterApp(registration *AppRegistration) error {
+func (s *FakeRegistry) RegisterApp(r *AppRegistration) error {
 	s.RegistrationCount++
 	return nil
 }
 
-func (s *FakeRegistry) RegisterHandler(registration *HandlerRegistration) error {
+func (s *FakeRegistry) RegisterHandler(r *HandlerRegistration) error {
 	return nil
 }
 

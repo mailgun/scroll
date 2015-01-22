@@ -14,12 +14,12 @@ type FakeRegistry struct {
 	Registrations []*registry.HandlerRegistration
 }
 
-func (s *FakeRegistry) RegisterApp(registration *registry.AppRegistration) error {
+func (s *FakeRegistry) RegisterApp(*registry.AppRegistration) error {
 	return nil
 }
 
-func (s *FakeRegistry) RegisterHandler(registration *registry.HandlerRegistration) error {
-	s.Registrations = append(s.Registrations, registration)
+func (s *FakeRegistry) RegisterHandler(r *registry.HandlerRegistration) error {
+	s.Registrations = append(s.Registrations, r)
 	return nil
 }
 
