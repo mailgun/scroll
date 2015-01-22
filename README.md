@@ -3,6 +3,8 @@
 scroll
 ======
 
+[![Build Status](http://img.shields.io/travis/mailgun/scroll/master.svg)](https://travis-ci.org/mailgun/scroll)
+
 Scroll is a lightweight library for building Go HTTP services at Mailgun.
 
 Example
