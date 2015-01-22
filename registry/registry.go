@@ -65,7 +65,7 @@ func (h *Heartbeater) Toggle() {
 }
 
 func (h *Heartbeater) heartbeat() {
-	for _ = range h.ticker.C {
+	for range h.ticker.C {
 		h.registry.RegisterApp(h.registration)
 	}
 }

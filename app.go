@@ -150,7 +150,7 @@ func (app *App) Run() error {
 		heartbeatChan := make(chan os.Signal, 1)
 		signal.Notify(heartbeatChan, syscall.SIGUSR1)
 
-		for _ = range heartbeatChan {
+		for range heartbeatChan {
 			app.heartbeater.Toggle()
 		}
 	}()
