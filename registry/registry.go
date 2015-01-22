@@ -31,10 +31,11 @@ type Registry interface {
 // Heartbeater periodically registers an application using the provided Registry.
 type Heartbeater struct {
 	Running      bool
-	ticker       *time.Ticker
-	registration *AppRegistration
-	registry     Registry
 	interval     time.Duration
+	registry     Registry
+	registration *AppRegistration
+	ticker       *time.Ticker
+	quit         chan int
 }
 
 // NewHeartbeater creates a Heartbeater from the provided app and registry.
@@ -46,11 +47,14 @@ func NewHeartbeater(registration *AppRegistration, registry Registry, interval t
 func (h *Heartbeater) Start() {
 	h.Running = true
 	h.ticker = time.NewTicker(h.interval)
+	h.quit = make(chan int)
+
 	go h.heartbeat()
 }
 
 // Stop halts sending heartbeats.
 func (h *Heartbeater) Stop() {
+	close(h.quit)
 	h.ticker.Stop()
 	h.Running = false
 }
@@ -65,7 +69,12 @@ func (h *Heartbeater) Toggle() {
 }
 
 func (h *Heartbeater) heartbeat() {
-	for range h.ticker.C {
-		h.registry.RegisterApp(h.registration)
+	for {
+		select {
+		case <-h.ticker.C:
+			h.registry.RegisterApp(h.registration)
+		case <-h.quit:
+			return
+		}
 	}
 }
