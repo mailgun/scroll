@@ -40,9 +40,6 @@ type Spec struct {
 	// Unique identifier used when emitting performance metrics for the handler.
 	MetricName string
 
-	// Whether to register the handler in vulcan.
-	Register bool
-
 	// Controls the handler's accessibility via vulcan (public or protected). If not specified, public is assumed.
 	Scopes []Scope
 

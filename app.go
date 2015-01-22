@@ -14,7 +14,6 @@ import (
 	"github.com/mailgun/metrics"
 
 	"github.com/mailgun/scroll/registry"
-	"github.com/mailgun/scroll/vulcan"
 	"github.com/mailgun/scroll/vulcan/middleware"
 )
 
@@ -36,7 +35,6 @@ const (
 type App struct {
 	Config      AppConfig
 	router      *mux.Router
-	registry    *vulcan.Registry
 	stats       *appStats
 	heartbeater *registry.Heartbeater
 }
@@ -58,8 +56,7 @@ type AppConfig struct {
 	ProtectedAPIHost string
 	ProtectedAPIURL  string
 
-	// whether to register the app's endpoint and handlers in vulcan
-	Register bool
+	// how to register the app's endpoint and handlers in vulcan
 	Registry registry.Registry
 	Interval time.Duration
 
@@ -74,14 +71,6 @@ func NewApp() *App {
 
 // Create a new app with the provided configuration.
 func NewAppWithConfig(config AppConfig) *App {
-	var reg *vulcan.Registry
-	if config.Register != false {
-		reg = vulcan.NewRegistry(vulcan.Config{
-			PublicAPIHost:    config.PublicAPIHost,
-			ProtectedAPIHost: config.ProtectedAPIHost,
-		})
-	}
-
 	router := config.Router
 	if router == nil {
 		router = mux.NewRouter()
@@ -98,7 +87,6 @@ func NewAppWithConfig(config AppConfig) *App {
 	return &App{
 		Config:      config,
 		router:      router,
-		registry:    reg,
 		heartbeater: heartbeater,
 		stats:       newAppStats(config.Client),
 	}
