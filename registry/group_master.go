@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/mailgun/go-etcd/etcd"
+	"github.com/mailgun/log"
 	"github.com/mailgun/scroll/vulcan"
 )
 
@@ -45,18 +46,22 @@ func NewGroupMasterRegistry(key string, group string, ttl uint64) *GroupMasterRe
 
 // RegisterApp adds a new backend and a single server with Vulcand.
 func (s *GroupMasterRegistry) RegisterApp(registration *AppRegistration) error {
+	log.Infof("Registering app: %v", registration)
+
 	endpoint, err := vulcan.NewEndpointWithID(s.Group, registration.Name, registration.Host, registration.Port)
 	if err != nil {
-		return nil
+		return err
 	}
 
 	err = s.registerBackend(endpoint)
 	if err != nil {
+		log.Errorf("Failed to register backend for endpoint: %v, %s", endpoint, err)
 		return err
 	}
 
 	err = s.registerServer(endpoint)
 	if err != nil {
+		log.Errorf("Failed to register server for endpoint: %v, %s", endpoint, err)
 		return err
 	}
 
@@ -98,6 +103,7 @@ func (s *GroupMasterRegistry) initLeader(endpoint *vulcan.Endpoint) error {
 		return err
 	}
 
+	log.Infof("Assumed master role for endpoint: %v", endpoint)
 	s.IsMaster = true
 
 	return nil
@@ -112,24 +118,28 @@ func (s *GroupMasterRegistry) maintainLeader(endpoint *vulcan.Endpoint) error {
 
 	_, err = s.Client.CompareAndSwap(key, server, s.TTL, server, 0)
 	if err != nil {
+		log.Infof("Falling back to follow role for endpoint: %v", endpoint)
 		s.IsMaster = false
 		return err
 	}
 
-	s.IsMaster = true
 	return nil
 }
 
 // RegisterHandler registers the frontends and middlewares with Vulcand.
 func (s *GroupMasterRegistry) RegisterHandler(registration *HandlerRegistration) error {
+	log.Infof("Registering handler: %v", registration)
+
 	location := vulcan.NewLocation(registration.Host, registration.Methods, registration.Path, registration.Name, registration.Middlewares)
 	err := s.registerFrontend(location)
 	if err != nil {
+		log.Errorf("Failed to register frontend for location: %v, %s", location, err)
 		return err
 	}
 
 	err = s.registerMiddleware(location)
 	if err != nil {
+		log.Errorf("Failed to register middleware for location: %v, %s", location, err)
 		return err
 	}
 

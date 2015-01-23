@@ -3,6 +3,7 @@ package registry
 import (
 	"time"
 
+	"github.com/mailgun/log"
 	"github.com/mailgun/scroll/vulcan/middleware"
 )
 
@@ -45,6 +46,8 @@ func NewHeartbeater(registration *AppRegistration, registry Registry, interval t
 
 // Start begins sending heartbeats.
 func (h *Heartbeater) Start() {
+	log.Infof("Starting heartbeat for app: %v", h.registration)
+
 	h.Running = true
 	h.ticker = time.NewTicker(h.interval)
 	h.quit = make(chan int)
@@ -54,6 +57,8 @@ func (h *Heartbeater) Start() {
 
 // Stop halts sending heartbeats.
 func (h *Heartbeater) Stop() {
+	log.Infof("Stopping heartbeat for app: %v", h.registration)
+
 	close(h.quit)
 	h.ticker.Stop()
 	h.Running = false
