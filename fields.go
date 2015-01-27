@@ -1,6 +1,7 @@
 package scroll
 
 import (
+	"encoding/json"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -41,6 +42,24 @@ func GetStringFieldWithDefault(r *http.Request, fieldName, defaultValue string) 
 		return fieldValue
 	}
 	return defaultValue
+}
+
+// Retrieve a POST request field as json.
+// Returns `MissingFieldError` if requested field is missing.
+// Returns `InvalidFormatError` if requested field is not a valid json string.
+func GetJsonField(r *http.Request, fieldName string) (interface{}, error) {
+	jsonString, err := GetStringField(r, fieldName)
+
+	if err != nil {
+		return nil, err
+	}
+
+	var v interface{}
+	err = json.Unmarshal([]byte(jsonString), &v)
+	if err != nil {
+		return nil, InvalidFormatError{Field: fieldName, Value: jsonString}
+	}
+	return v, nil
 }
 
 // A multiParamRegex is used to convert Ruby and PHP style array params.
