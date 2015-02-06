@@ -109,15 +109,21 @@ func (app *App) AddHandler(spec Spec) error {
 		return fmt.Errorf("the spec does not provide a handler function: %v", spec)
 	}
 
-	// register the handler in the router
-	route := app.router.HandleFunc(spec.Path, handler).Methods(spec.Methods...)
-	if len(spec.Headers) != 0 {
-		route.Headers(spec.Headers...)
+	// backward compatibility
+	if spec.Path != "" {
+		spec.Paths = []string{spec.Path}
 	}
 
-	// vulcan registration
-	if app.registry != nil && spec.Register != false {
-		app.registerLocation(spec.Methods, spec.Path, spec.Scopes, spec.Middlewares)
+	for _, path := range spec.Paths {
+		// register a handler in the router
+		route := app.router.HandleFunc(path, handler).Methods(spec.Methods...)
+		if len(spec.Headers) != 0 {
+			route.Headers(spec.Headers...)
+		}
+		// vulcan registration
+		if app.registry != nil && spec.Register != false {
+			app.registerLocation(spec.Methods, path, spec.Scopes, spec.Middlewares)
+		}
 	}
 
 	return nil
