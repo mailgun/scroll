@@ -27,7 +27,11 @@ type Spec struct {
 	Methods []string
 
 	// Path the handler should match.
+	// Deprecated. Kept for backward compatibility. Use Paths instead.
 	Path string
+
+	// List of paths the handler should match. A separate handler will be registered for each of them.
+	Paths []string
 
 	// Key/value pairs of specific HTTP headers the handler should match (e.g. Content-Type).
 	Headers []string
