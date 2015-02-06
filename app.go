@@ -109,11 +109,6 @@ func (app *App) AddHandler(spec Spec) error {
 		return fmt.Errorf("the spec does not provide a handler function: %v", spec)
 	}
 
-	// backward compatibility
-	if spec.Path != "" && spec.Paths == nil {
-		spec.Paths = []string{spec.Path}
-	}
-
 	for _, path := range spec.Paths {
 		// register a handler in the router
 		route := app.router.HandleFunc(path, handler).Methods(spec.Methods...)
