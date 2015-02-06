@@ -110,7 +110,7 @@ func (app *App) AddHandler(spec Spec) error {
 	}
 
 	// backward compatibility
-	if spec.Path != "" {
+	if spec.Path != "" && spec.Paths == nil {
 		spec.Paths = []string{spec.Path}
 	}
 
