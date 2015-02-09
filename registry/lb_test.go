@@ -11,25 +11,25 @@ import (
 	. "gopkg.in/check.v1"
 )
 
-func TestMultiMasterRegistry(t *testing.T) {
+func TestLBRegistry(t *testing.T) {
 	TestingT(t)
 }
 
-type MultiMasterSuite struct {
+type LBRegistrySuite struct {
 	client              *etcd.Client
-	registry            *MultiMasterRegistry
+	registry            *LBRegistry
 	appRegistration     *AppRegistration
 	handlerRegistration *HandlerRegistration
 }
 
-var _ = Suite(&MultiMasterSuite{})
+var _ = Suite(&LBRegistrySuite{})
 
-func (s *MultiMasterSuite) SetUpSuite(c *C) {
+func (s *LBRegistrySuite) SetUpSuite(c *C) {
 	machines := []string{"http://127.0.0.1:4001"}
 	s.client = etcd.NewClient(machines)
 	s.client.Delete("customkey", true)
 
-	s.registry, _ = NewMultiMasterRegistry("customkey", 15)
+	s.registry, _ = NewLBRegistry("customkey", 15)
 	s.appRegistration = &AppRegistration{Name: "name", Host: "host", Port: 12345}
 	s.handlerRegistration = &HandlerRegistration{
 		Name:        "name",
@@ -40,7 +40,7 @@ func (s *MultiMasterSuite) SetUpSuite(c *C) {
 	}
 }
 
-func (s *MultiMasterSuite) TestRegisterAppCreatesBackend(c *C) {
+func (s *LBRegistrySuite) TestRegisterAppCreatesBackend(c *C) {
 	_ = s.registry.RegisterApp(s.appRegistration)
 	backend, err := s.client.Get("customkey/backends/name/backend", false, false)
 
@@ -49,7 +49,7 @@ func (s *MultiMasterSuite) TestRegisterAppCreatesBackend(c *C) {
 	c.Assert(backend.Node.TTL, Equals, int64(0))
 }
 
-func (s *MultiMasterSuite) TestRegisterAppCreatesServer(c *C) {
+func (s *LBRegistrySuite) TestRegisterAppCreatesServer(c *C) {
 	_ = s.registry.RegisterApp(s.appRegistration)
 
 	host, err := os.Hostname()
@@ -61,7 +61,7 @@ func (s *MultiMasterSuite) TestRegisterAppCreatesServer(c *C) {
 	c.Assert(server.Node.TTL, Equals, int64(15))
 }
 
-func (s *MultiMasterSuite) TestRegisterHandlerCreatesFrontend(c *C) {
+func (s *LBRegistrySuite) TestRegisterHandlerCreatesFrontend(c *C) {
 	_ = s.registry.RegisterHandler(s.handlerRegistration)
 
 	frontend, err := s.client.Get("customkey/frontends/host.put.path.to.server/frontend", false, false)
@@ -72,7 +72,7 @@ func (s *MultiMasterSuite) TestRegisterHandlerCreatesFrontend(c *C) {
 	c.Assert(frontend.Node.TTL, Equals, int64(0))
 }
 
-func (s *MultiMasterSuite) TestRegisterHandlerCreatesMiddlewares(c *C) {
+func (s *LBRegistrySuite) TestRegisterHandlerCreatesMiddlewares(c *C) {
 	_ = s.registry.RegisterHandler(s.handlerRegistration)
 
 	frontend, err := s.client.Get("customkey/frontends/host.put.path.to.server/middlewares/id", false, false)

@@ -19,9 +19,9 @@ func init() {
 }
 
 func main() {
-	name := "multimaster"
+	name := "loadbalancer"
 
-	registry, err := registry.NewMultiMasterRegistry("scrollexamples/multimaster", 5)
+	registry, err := registry.NewLBRegistry("scrollexamples/lb", 5)
 	if err != nil {
 		return
 	}

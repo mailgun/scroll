@@ -6,22 +6,22 @@ import (
 )
 
 /*
-MultiMasterRegistry is an implementation of Registry in which multiple instances
+LBRegistry is an implementation of Registry in which multiple instances
 of an application are able to accept requests at the same time. Internally, this
 registry uses GroupMasterRegistry by creating a unique group ID for each
 instance of an application.
 */
-type MultiMasterRegistry struct {
+type LBRegistry struct {
 	Key    string
 	TTL    uint64
 	client *vulcan.Client
 }
 
-// NewMultiMasterRegistry creates a new MultiMasterRegistry from the provided etcd Client.
-func NewMultiMasterRegistry(key string, ttl uint64) (*MultiMasterRegistry, error) {
+// NewLBRegistry creates a new LBRegistry from the provided etcd Client.
+func NewLBRegistry(key string, ttl uint64) (*LBRegistry, error) {
 	client := vulcan.NewClient(key)
 
-	return &MultiMasterRegistry{
+	return &LBRegistry{
 		Key:    key,
 		TTL:    ttl,
 		client: client,
@@ -29,7 +29,7 @@ func NewMultiMasterRegistry(key string, ttl uint64) (*MultiMasterRegistry, error
 }
 
 // RegisterApp adds a new backend and a single server with Vulcand.
-func (s *MultiMasterRegistry) RegisterApp(registration *AppRegistration) error {
+func (s *LBRegistry) RegisterApp(registration *AppRegistration) error {
 	log.Infof("Registering app: %v", registration)
 
 	endpoint, err := vulcan.NewEndpoint(registration.Name, registration.Host, registration.Port)
@@ -53,7 +53,7 @@ func (s *MultiMasterRegistry) RegisterApp(registration *AppRegistration) error {
 }
 
 // RegisterHandler registers the frontends and middlewares with Vulcand.
-func (s *MultiMasterRegistry) RegisterHandler(registration *HandlerRegistration) error {
+func (s *LBRegistry) RegisterHandler(registration *HandlerRegistration) error {
 	log.Infof("Registering handler: %v", registration)
 
 	location := vulcan.NewLocation(registration.Host, registration.Methods, registration.Path, registration.Name, registration.Middlewares)
