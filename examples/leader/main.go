@@ -19,13 +19,13 @@ func init() {
 }
 
 func main() {
-	name := "singlemaster"
+	name := "leader"
 
 	appConfig := scroll.AppConfig{
 		Name:             name,
 		ListenIP:         host,
 		ListenPort:       port,
-		Registry:         registry.NewSingleMasterRegistry("scrollexamples/singlemaster", "master", 5),
+		Registry:         registry.NewLeaderRegistry("scrollexamples/leader", "master", 5),
 		PublicAPIHost:    "public.local",
 		ProtectedAPIHost: "private.local",
 	}
