@@ -75,7 +75,7 @@ func (s *AppSuite) TestRegistersHandler(c *C) {
 	handlerSpec := Spec{
 		Scopes:  []Scope{ScopePublic, ScopeProtected},
 		Methods: []string{"GET"},
-		Path:    "/",
+		Paths:   []string{"/"},
 		Handler: index,
 	}
 

@@ -33,7 +33,7 @@ func main() {
 	handlerSpec := scroll.Spec{
 		Scopes:  []scroll.Scope{scroll.ScopePublic, scroll.ScopeProtected},
 		Methods: []string{"GET"},
-		Path:    "/",
+		Paths:   []string{"/"},
 		Handler: index,
 	}
 

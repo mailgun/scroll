@@ -21,7 +21,7 @@ func init() {
 func main() {
 	name := "multimaster"
 
-	registry, err := registry.NewMultiMasterRegistry("scrollexamples/multimaster", port, 5)
+	registry, err := registry.NewMultiMasterRegistry("scrollexamples/multimaster", 5)
 	if err != nil {
 		return
 	}
@@ -38,7 +38,7 @@ func main() {
 	handlerSpec := scroll.Spec{
 		Scopes:  []scroll.Scope{scroll.ScopePublic, scroll.ScopeProtected},
 		Methods: []string{"GET"},
-		Path:    "/",
+		Paths:   []string{"/"},
 		Handler: index,
 	}
 

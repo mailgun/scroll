@@ -1,20 +1,8 @@
 package registry
 
 import (
-	"encoding/json"
-	"fmt"
-
-	"github.com/mailgun/go-etcd/etcd"
 	"github.com/mailgun/log"
 	"github.com/mailgun/scroll/vulcan"
-)
-
-const (
-	etcdMachine   = "http://127.0.0.1:4001"
-	frontendKey   = "%s/frontends/%s.%s/frontend"
-	middlewareKey = "%s/frontends/%s.%s/middlewares/%s"
-	backendKey    = "%s/backends/%s/backend"
-	serverKey     = "%s/backends/%s/servers/%s"
 )
 
 /*
@@ -28,18 +16,18 @@ type GroupMasterRegistry struct {
 	Group    string
 	TTL      uint64
 	IsMaster bool
-	Client   *etcd.Client
+	client   *vulcan.Client
 }
 
 // NewGroupMasterRegistry creates a new GroupMasterRegistry from the provided etcd Client.
 func NewGroupMasterRegistry(key string, group string, ttl uint64) *GroupMasterRegistry {
-	client := etcd.NewClient([]string{etcdMachine})
+	client := vulcan.NewClient(key)
 
 	return &GroupMasterRegistry{
 		Key:      key,
 		Group:    group,
 		TTL:      ttl,
-		Client:   client,
+		client:   client,
 		IsMaster: false,
 	}
 }
@@ -53,13 +41,18 @@ func (s *GroupMasterRegistry) RegisterApp(registration *AppRegistration) error {
 		return err
 	}
 
-	err = s.registerBackend(endpoint)
+	err = s.client.RegisterBackend(endpoint)
 	if err != nil {
 		log.Errorf("Failed to register backend for endpoint: %v, %s", endpoint, err)
 		return err
 	}
 
-	err = s.registerServer(endpoint)
+	if s.IsMaster {
+		err = s.maintainLeader(endpoint)
+	} else {
+		err = s.initLeader(endpoint)
+	}
+
 	if err != nil {
 		log.Errorf("Failed to register server for endpoint: %v, %s", endpoint, err)
 		return err
@@ -68,37 +61,8 @@ func (s *GroupMasterRegistry) RegisterApp(registration *AppRegistration) error {
 	return nil
 }
 
-func (s *GroupMasterRegistry) registerBackend(endpoint *vulcan.Endpoint) error {
-	key := fmt.Sprintf(backendKey, s.Key, endpoint.Name)
-	backend, err := endpoint.BackendSpec()
-	if err != nil {
-		return err
-	}
-
-	_, err = s.Client.Set(key, backend, 0)
-	if err != nil {
-		return err
-	}
-
-	return err
-}
-
-func (s *GroupMasterRegistry) registerServer(endpoint *vulcan.Endpoint) error {
-	if s.IsMaster {
-		return s.maintainLeader(endpoint)
-	}
-
-	return s.initLeader(endpoint)
-}
-
 func (s *GroupMasterRegistry) initLeader(endpoint *vulcan.Endpoint) error {
-	key := fmt.Sprintf(serverKey, s.Key, endpoint.Name, endpoint.ID)
-	server, err := endpoint.ServerSpec()
-	if err != nil {
-		return nil
-	}
-
-	_, err = s.Client.Create(key, server, s.TTL)
+	err := s.client.CreateServer(endpoint, s.TTL)
 	if err != nil {
 		return err
 	}
@@ -110,13 +74,7 @@ func (s *GroupMasterRegistry) initLeader(endpoint *vulcan.Endpoint) error {
 }
 
 func (s *GroupMasterRegistry) maintainLeader(endpoint *vulcan.Endpoint) error {
-	key := fmt.Sprintf(serverKey, s.Key, endpoint.Name, endpoint.ID)
-	server, err := endpoint.ServerSpec()
-	if err != nil {
-		return nil
-	}
-
-	_, err = s.Client.CompareAndSwap(key, server, s.TTL, server, 0)
+	err := s.client.UpdateServer(endpoint, s.TTL)
 	if err != nil {
 		log.Infof("Falling back to follow role for endpoint: %v", endpoint)
 		s.IsMaster = false
@@ -131,50 +89,16 @@ func (s *GroupMasterRegistry) RegisterHandler(registration *HandlerRegistration)
 	log.Infof("Registering handler: %v", registration)
 
 	location := vulcan.NewLocation(registration.Host, registration.Methods, registration.Path, registration.Name, registration.Middlewares)
-	err := s.registerFrontend(location)
+	err := s.client.RegisterFrontend(location)
 	if err != nil {
 		log.Errorf("Failed to register frontend for location: %v, %s", location, err)
 		return err
 	}
 
-	err = s.registerMiddleware(location)
+	err = s.client.RegisterMiddleware(location)
 	if err != nil {
 		log.Errorf("Failed to register middleware for location: %v, %s", location, err)
 		return err
-	}
-
-	return nil
-}
-
-func (s *GroupMasterRegistry) registerFrontend(location *vulcan.Location) error {
-	key := fmt.Sprintf(frontendKey, s.Key, location.Host, location.ID)
-	frontend, err := location.Spec()
-	if err != nil {
-		return err
-	}
-
-	_, err = s.Client.Set(key, frontend, 0)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (s *GroupMasterRegistry) registerMiddleware(location *vulcan.Location) error {
-	for i, m := range location.Middlewares {
-		m.Priority = i
-
-		key := fmt.Sprintf(middlewareKey, s.Key, location.Host, location.ID, m.ID)
-		middleware, err := json.Marshal(m)
-		if err != nil {
-			return err
-		}
-
-		_, err = s.Client.Set(key, string(middleware), 0)
-		if err != nil {
-			return err
-		}
 	}
 
 	return nil
