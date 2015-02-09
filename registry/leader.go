@@ -6,12 +6,12 @@ import (
 )
 
 /*
-GroupMasterRegistry is an implementation of Registry that uses a single master
+LeaderRegistry is an implementation of Registry that uses a single master
 instance of an application within a given group to handle requests. When the
 master instance fails, request handling will automatically failover to a slave
 instance.
 */
-type GroupMasterRegistry struct {
+type LeaderRegistry struct {
 	Key      string
 	Group    string
 	TTL      uint64
@@ -19,11 +19,11 @@ type GroupMasterRegistry struct {
 	client   *vulcan.Client
 }
 
-// NewGroupMasterRegistry creates a new GroupMasterRegistry from the provided etcd Client.
-func NewGroupMasterRegistry(key string, group string, ttl uint64) *GroupMasterRegistry {
+// NewLeaderRegistry creates a new LeaderRegistry from the provided etcd Client.
+func NewLeaderRegistry(key string, group string, ttl uint64) *LeaderRegistry {
 	client := vulcan.NewClient(key)
 
-	return &GroupMasterRegistry{
+	return &LeaderRegistry{
 		Key:      key,
 		Group:    group,
 		TTL:      ttl,
@@ -33,7 +33,7 @@ func NewGroupMasterRegistry(key string, group string, ttl uint64) *GroupMasterRe
 }
 
 // RegisterApp adds a new backend and a single server with Vulcand.
-func (s *GroupMasterRegistry) RegisterApp(registration *AppRegistration) error {
+func (s *LeaderRegistry) RegisterApp(registration *AppRegistration) error {
 	log.Infof("Registering app: %v", registration)
 
 	endpoint, err := vulcan.NewEndpointWithID(s.Group, registration.Name, registration.Host, registration.Port)
@@ -61,7 +61,7 @@ func (s *GroupMasterRegistry) RegisterApp(registration *AppRegistration) error {
 	return nil
 }
 
-func (s *GroupMasterRegistry) initLeader(endpoint *vulcan.Endpoint) error {
+func (s *LeaderRegistry) initLeader(endpoint *vulcan.Endpoint) error {
 	err := s.client.CreateServer(endpoint, s.TTL)
 	if err != nil {
 		return err
@@ -73,7 +73,7 @@ func (s *GroupMasterRegistry) initLeader(endpoint *vulcan.Endpoint) error {
 	return nil
 }
 
-func (s *GroupMasterRegistry) maintainLeader(endpoint *vulcan.Endpoint) error {
+func (s *LeaderRegistry) maintainLeader(endpoint *vulcan.Endpoint) error {
 	err := s.client.UpdateServer(endpoint, s.TTL)
 	if err != nil {
 		log.Infof("Falling back to follow role for endpoint: %v", endpoint)
@@ -85,7 +85,7 @@ func (s *GroupMasterRegistry) maintainLeader(endpoint *vulcan.Endpoint) error {
 }
 
 // RegisterHandler registers the frontends and middlewares with Vulcand.
-func (s *GroupMasterRegistry) RegisterHandler(registration *HandlerRegistration) error {
+func (s *LeaderRegistry) RegisterHandler(registration *HandlerRegistration) error {
 	log.Infof("Registering handler: %v", registration)
 
 	location := vulcan.NewLocation(registration.Host, registration.Methods, registration.Path, registration.Name, registration.Middlewares)

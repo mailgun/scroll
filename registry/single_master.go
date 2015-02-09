@@ -16,13 +16,13 @@ type SingleMasterRegistry struct {
 	TTL           uint64
 	IsMaster      bool
 	Client        *etcd.Client
-	innerRegistry *GroupMasterRegistry
+	innerRegistry *LeaderRegistry
 }
 
 // NewSingleMasterRegistry creates a new SingleMasterRegistry from the provided etcd Client.
 func NewSingleMasterRegistry(key string, ttl uint64) *SingleMasterRegistry {
 	client := etcd.NewClient([]string{"http://127.0.0.1:4001"})
-	innerRegistry := NewGroupMasterRegistry(key, masterNodeID, ttl)
+	innerRegistry := NewLeaderRegistry(key, masterNodeID, ttl)
 
 	return &SingleMasterRegistry{
 		Key:           key,
