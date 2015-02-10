@@ -40,7 +40,7 @@ func main() {
 	handlerSpec := scroll.Spec{
 
 		Methods:  []string{"GET", "POST"},
-		Path:     "/resources/{resourceID}",
+		Paths:    []string{"/resources/{resourceID}"},
 		Register: false,
 		Handler:  handler,
 	}
