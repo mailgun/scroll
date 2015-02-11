@@ -88,8 +88,6 @@ func (c *Client) RegisterBackend(endpoint *Endpoint) error {
 
 func (c *Client) RegisterFrontend(location *Location) error {
 	key := fmt.Sprintf(frontendKey, c.Key, location.Host, location.ID)
-	fmt.Println(location.ID)
-
 	frontend, err := location.Spec()
 	if err != nil {
 		return err
