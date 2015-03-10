@@ -159,7 +159,7 @@ func (app *App) Run() error {
 	// listen for a shutdown signal
 	go func() {
 		exitChan := make(chan os.Signal, 1)
-		signal.Notify(exitChan, os.Interrupt, os.Kill)
+		signal.Notify(exitChan, syscall.SIGINT, syscall.SIGTERM)
 		s := <-exitChan
 		log.Infof("Got shutdown signal: %v", s)
 		manners.Close()
