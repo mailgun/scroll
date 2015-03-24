@@ -30,8 +30,8 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/mailgun/scroll/registry"
 	"github.com/mailgun/scroll"
+	"github.com/mailgun/scroll/registry"
 )
 
 func handler(w http.ResponseWriter, r *http.Request, params map[string]string) (interface{}, error) {
@@ -46,7 +46,7 @@ func main() {
 		Name:       "scrollexample",
 		ListenIP:   "0.0.0.0",
 		ListenPort: 8080,
-		Registry: &registry.NopRegistry{},
+		Registry:   &registry.NopRegistry{},
 	}
 	app := scroll.NewAppWithConfig(appConfig)
 
