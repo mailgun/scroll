@@ -2,6 +2,7 @@ package scroll
 
 import (
 	"net/http"
+	"regexp"
 	"strconv"
 	"time"
 
@@ -26,13 +27,31 @@ func GetStringFieldWithDefault(r *http.Request, fieldName, defaultValue string) 
 	return defaultValue
 }
 
+// A multiParamRegex is used to convert Ruby and PHP style array params.
+// PHP uses ["param[0]", "param[1]",..] instead of ["param", "param",..]
+// Ruby uses ["param[]", "param[]",..]
+var multiParamRegex *regexp.Regexp
+
+func init() {
+	multiParamRegex = regexp.MustCompile(`^([a-z:]*)\[\d*\]$`)
+}
+
 // Retrieve fields with the same name as an array of strings.
 func GetMultipleFields(r *http.Request, fieldName string) ([]string, error) {
-	value, ok := r.Form[fieldName]
-	if !ok {
+	var values = []string{}
+
+	for field, value := range r.Form {
+		// Strip the square brackets.
+		if multiParamRegex.ReplaceAllString(field, "$1") == fieldName {
+			values = append(values, value...)
+		}
+	}
+
+	if len(values) == 0 {
 		return []string{}, MissingFieldError{fieldName}
 	}
-	return value, nil
+
+	return values, nil
 }
 
 // Retrieve a POST request field as an integer.
