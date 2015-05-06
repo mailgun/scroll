@@ -48,3 +48,25 @@ func (s *FieldsSuite) TestGetMultipleFieldsMissingValue(c *C) {
 	c.Assert(err, NotNil)
 	c.Assert(len(values), Equals, 0)
 }
+
+func (s *FieldsSuite) TestGetFloatField(c *C) {
+	request, _ := http.NewRequest("GET", "http://example.com", nil)
+	request.Form = make(url.Values)
+
+	// Missing field.
+	value, err := GetFloatField(request, "p")
+	c.Assert(err, Equals, MissingFieldError{"p"})
+	c.Assert(value, Equals, float64(0))
+
+	// Invalid value.
+	request.Form["p"] = []string{"abracadabra"}
+	value, err = GetFloatField(request, "p")
+	c.Assert(err, Equals, InvalidFormatError{"p", "abracadabra"})
+	c.Assert(value, Equals, float64(0))
+
+	// Success.
+	request.Form["p"] = []string{"0.0000001"}
+	value, err = GetFloatField(request, "p")
+	c.Assert(err, IsNil)
+	c.Assert(value, Equals, float64(0.0000001))
+}
