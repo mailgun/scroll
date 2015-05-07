@@ -73,11 +73,11 @@ func GetIntField(r *http.Request, fieldName string) (int, error) {
 func GetFloatField(r *http.Request, fieldName string) (float64, error) {
 	stringField, err := GetStringField(r, fieldName)
 	if err != nil {
-		return float64(0), err
+		return 0, err
 	}
 	floatField, err := strconv.ParseFloat(stringField, 64)
 	if err != nil {
-		return float64(0), InvalidFormatError{fieldName, stringField}
+		return 0, InvalidFormatError{fieldName, stringField}
 	}
 	return floatField, nil
 }
