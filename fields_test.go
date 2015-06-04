@@ -11,6 +11,26 @@ type FieldsSuite struct{}
 
 var _ = Suite(&FieldsSuite{})
 
+func (s *FieldsSuite) TestSafe(c *C) {
+	request, _ := http.NewRequest("GET", "http://example.com", nil)
+	request.Form = make(url.Values)
+	request.Form["p"] = []string{"foo"}
+
+	value, err := GetStringFieldSafe(request, "p", NewAllowSetBytes("f", 3))
+	c.Assert(err, NotNil)
+
+	value, err = GetStringFieldSafe(request, "p", NewAllowSetBytes("fo", 3))
+	c.Assert(err, IsNil)
+	c.Assert(value, Equals, "foo")
+
+	value, err = GetStringFieldSafe(request, "p", NewAllowSetStrings([]string{"bar", "baz"}))
+	c.Assert(err, NotNil)
+
+	value, err = GetStringFieldSafe(request, "p", NewAllowSetStrings([]string{"foo", "bar"}))
+	c.Assert(err, IsNil)
+	c.Assert(value, Equals, "foo")
+}
+
 func (s *FieldsSuite) TestGetMultipleFields(c *C) {
 	request, _ := http.NewRequest("GET", "http://example.com", nil)
 	request.Form = make(url.Values)

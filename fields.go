@@ -18,6 +18,21 @@ func GetStringField(r *http.Request, fieldName string) (string, error) {
 	return r.FormValue(fieldName), nil
 }
 
+// Retrieves requested field as a string, allowSet provides input sanitization. If an
+// error occurs, returns either a `MissingFieldError` or an `UnsafeFieldError`.
+func GetStringFieldSafe(r *http.Request, fieldName string, allowSet AllowSet) (string, error) {
+	if _, ok := r.Form[fieldName]; !ok {
+		return "", MissingFieldError{fieldName}
+	}
+
+	fieldValue := r.FormValue(fieldName)
+	if !allowSet.IsSafe(fieldValue) {
+		return "", UnsafeFieldError{fieldName}
+	}
+
+	return fieldValue, nil
+}
+
 // Retrieve a POST request field as a string.
 // If the requested field is missing, returns provided default value.
 func GetStringFieldWithDefault(r *http.Request, fieldName, defaultValue string) string {

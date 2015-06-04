@@ -55,9 +55,17 @@ func (e ConflictError) Error() string {
 	return e.Description
 }
 
+type UnsafeFieldError struct {
+	Field string
+}
+
+func (e UnsafeFieldError) Error() string {
+	return fmt.Sprintf("field contains unsafe characters: %v", e.Field)
+}
+
 func responseAndStatusFor(err error) (Response, int) {
 	switch err.(type) {
-	case GenericAPIError, MissingFieldError, InvalidFormatError, InvalidParameterError:
+	case GenericAPIError, MissingFieldError, InvalidFormatError, InvalidParameterError, UnsafeFieldError:
 		return Response{"message": err.Error()}, http.StatusBadRequest
 	case NotFoundError:
 		return Response{"message": err.Error()}, http.StatusNotFound
