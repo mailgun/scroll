@@ -111,3 +111,10 @@ func GetDurationField(r *http.Request, fieldName string) (time.Duration, error) 
 	}
 	return d, nil
 }
+
+func HasField(r *http.Request, fieldName string) bool {
+	if _, ok := r.Form[fieldName]; !ok {
+		return false
+	}
+	return true
+}
