@@ -26,8 +26,9 @@ func GetStringFieldSafe(r *http.Request, fieldName string, allowSet AllowSet) (s
 	}
 
 	fieldValue := r.FormValue(fieldName)
-	if !allowSet.IsSafe(fieldValue) {
-		return "", UnsafeFieldError{fieldName}
+	err := allowSet.IsSafe(fieldValue)
+	if err != nil {
+		return "", UnsafeFieldError{fieldName, err.Error()}
 	}
 
 	return fieldValue, nil

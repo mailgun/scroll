@@ -170,8 +170,9 @@ func GetVarSafe(r *http.Request, variableName string, allowSet AllowSet) (string
 		return "", MissingFieldError{variableName}
 	}
 
-	if !allowSet.IsSafe(variableValue) {
-		return "", UnsafeFieldError{variableName}
+	err := allowSet.IsSafe(variableValue)
+	if err != nil {
+		return "", UnsafeFieldError{variableName, err.Error()}
 	}
 
 	return variableValue, nil

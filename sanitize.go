@@ -1,10 +1,13 @@
 package scroll
 
-import "unicode"
+import (
+	"fmt"
+	"unicode"
+)
 
 // The AllowSet interface is implemented to detect if input is safe or not.
 type AllowSet interface {
-	IsSafe(string) bool
+	IsSafe(string) error
 }
 
 // AllowSetBytes allows the definition of a set of safe allowed ASCII characters.
@@ -25,18 +28,18 @@ func NewAllowSetBytes(s string, maxlen int) AllowSetBytes {
 	return AllowSetBytes{maxLen: maxlen, chars: as}
 }
 
-func (a AllowSetBytes) IsSafe(s string) bool {
+func (a AllowSetBytes) IsSafe(s string) error {
 	if len(s) > a.maxLen {
-		return false
+		return fmt.Errorf("length %v, longer then maximum allowable length: %v", len(s), a.maxLen)
 	}
 
 	for i := 0; i < len(s); i++ {
 		if a.chars[s[i]] == false {
-			return false
+			return fmt.Errorf("character %q (%v) not allowed", string(s[i]), s[i])
 		}
 	}
 
-	return true
+	return nil
 }
 
 // AllowSetStrings allows the definition of a set of safe allowed strings.
@@ -52,9 +55,9 @@ func NewAllowSetStrings(s []string) AllowSetStrings {
 	return AllowSetStrings{strings: m}
 }
 
-func (a AllowSetStrings) IsSafe(s string) bool {
+func (a AllowSetStrings) IsSafe(s string) error {
 	if _, ok := a.strings[s]; !ok {
-		return false
+		return fmt.Errorf("string %v not allowed", s)
 	}
-	return true
+	return nil
 }
