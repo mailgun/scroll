@@ -66,7 +66,7 @@ type HandlerFunc func(http.ResponseWriter, *http.Request, map[string]string) (in
 func MakeHandler(app *App, fn HandlerFunc, spec Spec) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := parseForm(r); err != nil {
-			ReplyInternalError(w, fmt.Sprintf("Failed to parse request form: %v", err))
+			replyInternalError(w, fmt.Sprintf("Failed to parse request form: %v", err))
 			return
 		}
 
@@ -86,7 +86,7 @@ func MakeHandler(app *App, fn HandlerFunc, spec Spec) http.HandlerFunc {
 
 		app.stats.TrackRequest(spec.MetricName, status, elapsedTime)
 
-		Reply(w, response, status)
+		reply(w, response, status)
 	}
 }
 
@@ -99,13 +99,13 @@ type HandlerWithBodyFunc func(http.ResponseWriter, *http.Request, map[string]str
 func MakeHandlerWithBody(app *App, fn HandlerWithBodyFunc, spec Spec) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := parseForm(r); err != nil {
-			ReplyInternalError(w, fmt.Sprintf("Failed to parse request form: %v", err))
+			replyInternalError(w, fmt.Sprintf("Failed to parse request form: %v", err))
 			return
 		}
 
 		body, err := ioutil.ReadAll(r.Body)
 		if err != nil {
-			ReplyInternalError(w, fmt.Sprintf("Failed to read request body: %v", err))
+			replyInternalError(w, fmt.Sprintf("Failed to read request body: %v", err))
 			return
 		}
 
@@ -119,44 +119,51 @@ func MakeHandlerWithBody(app *App, fn HandlerWithBodyFunc, spec Spec) http.Handl
 		} else {
 			status = http.StatusOK
 		}
+		marshaled, err := json.Marshal(response)
+		if err != nil {
+			status = http.StatusInternalServerError
+			marshaled, _ = json.Marshal(Response{
+				"message": fmt.Sprintf("Failed to marshal response: %v %v", response, err)})
+		}
 
-		log.Infof("Request(Status=%v, Method=%v, Path=%v, Form=%v, Time=%v, Error=%v)",
-			status, r.Method, r.URL, r.Form, elapsedTime, err)
+		log.Infof("%s %s %s %s", r.Method, r.URL, status, marshaled)
 
 		app.stats.TrackRequest(spec.MetricName, status, elapsedTime)
 
-		Reply(w, response, status)
+		replyWithJSON(w, marshaled, status)
 	}
 }
 
-// Reply with the provided HTTP response and status code.
+func replyWithJSON(w http.ResponseWriter, marshaled []byte, status int) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	w.Write(marshaled)
+}
+
+// reply with the provided HTTP response and status code.
 //
 // Response body must be JSON-marshallable, otherwise the response
 // will be "Internal Server Error".
-func Reply(w http.ResponseWriter, response interface{}, status int) {
+func reply(w http.ResponseWriter, response interface{}, status int) {
 	// marshal the body of the response
-	marshalledResponse, err := json.Marshal(response)
+	marshaledResponse, err := json.Marshal(response)
 	if err != nil {
-		ReplyInternalError(w, fmt.Sprintf("Failed to marshal response: %v %v", response, err))
+		replyInternalError(w, fmt.Sprintf("Failed to marshal response: %v %v", response, err))
 		return
 	}
-
-	// write JSON response
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.WriteHeader(status)
-	w.Write(marshalledResponse)
+	replyWithJSON(w, marshaledResponse, status)
 }
 
 // ReplyError converts registered error into HTTP response code and writes it back.
 func ReplyError(w http.ResponseWriter, err error) {
 	response, status := responseAndStatusFor(err)
-	Reply(w, response, status)
+	reply(w, response, status)
 }
 
 // Helper that replies with the 500 code and happened error message.
-func ReplyInternalError(w http.ResponseWriter, message string) {
+func replyInternalError(w http.ResponseWriter, message string) {
 	log.Errorf("Internal server error: %v", message)
-	Reply(w, Response{"message": message}, http.StatusInternalServerError)
+	reply(w, Response{"message": message}, http.StatusInternalServerError)
 }
 
 // GetVarSafe is a helper function that returns the requested variable from URI with allowSet
