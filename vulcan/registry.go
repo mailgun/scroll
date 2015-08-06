@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/mailgun/go-etcd/etcd"
+	"github.com/coreos/go-etcd/etcd"
 )
 
 const (

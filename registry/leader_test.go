@@ -3,7 +3,7 @@ package registry
 import (
 	"testing"
 
-	"github.com/mailgun/go-etcd/etcd"
+	"github.com/coreos/go-etcd/etcd"
 	"github.com/mailgun/scroll/vulcan/middleware"
 
 	. "gopkg.in/check.v1"
