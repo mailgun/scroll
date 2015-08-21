@@ -4,14 +4,16 @@ import (
 	"time"
 
 	"github.com/mailgun/log"
+	"github.com/mailgun/scroll/vulcan"
 	"github.com/mailgun/scroll/vulcan/middleware"
 )
 
 // AppRegistration contains data about an app to be registered.
 type AppRegistration struct {
-	Name string
-	Host string
-	Port int
+	Name            string
+	Host            string
+	Port            int
+	VulcandSettings *vulcan.BackendSettings
 }
 
 // HandlerRegistration contains data about a handler to be registered.
