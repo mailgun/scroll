@@ -59,6 +59,16 @@ func (h *RestHelper) Delete(t T, url string) scroll.Response {
 	return h.parseResponse(t, response)
 }
 
+// Do makes a given http.Request to the test server.
+func (h *RestHelper) Do(t T, req *http.Request) scroll.Response {
+	client := &http.Client{}
+	response, err := client.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return h.parseResponse(t, response)
+}
+
 func (h *RestHelper) parseResponse(t T, response *http.Response) scroll.Response {
 	defer response.Body.Close()
 
