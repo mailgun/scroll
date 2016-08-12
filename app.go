@@ -75,6 +75,7 @@ func NewAppWithConfig(config AppConfig) *App {
 	if router == nil {
 		router = mux.NewRouter()
 	}
+	router.HandleFunc("/_ping", handlePing).Methods("GET")
 
 	interval := config.Interval
 	if interval == 0 {
@@ -207,4 +208,10 @@ func (app *App) apiHostForScope(scope Scope) (string, error) {
 	} else {
 		return "", fmt.Errorf("unknown scope value: %v", scope)
 	}
+}
+
+func handlePing(w http.ResponseWriter, r *http.Request) {
+	defer r.Body.Close()
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("pong"))
 }

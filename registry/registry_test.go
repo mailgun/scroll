@@ -35,17 +35,8 @@ func (s *RegistrySuite) TestStartRegistersAppAtInterval(c *C) {
 
 	heartbeater := NewHeartbeater(registration, registry, 10*time.Millisecond)
 	heartbeater.Start()
-	time.Sleep(30 * time.Millisecond)
-
-	c.Assert(registry.RegistrationCount, Equals, 3)
-
+	time.Sleep(35 * time.Millisecond)
 	heartbeater.Stop()
-	time.Sleep(30 * time.Millisecond)
 
 	c.Assert(registry.RegistrationCount, Equals, 3)
-
-	heartbeater.Start()
-	time.Sleep(30 * time.Millisecond)
-
-	c.Assert(registry.RegistrationCount, Equals, 6)
 }

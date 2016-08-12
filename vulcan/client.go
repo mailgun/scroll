@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	etcdMachine   = "http://127.0.0.1:4001"
+	etcdMachine   = "http://127.0.0.1:2379"
 	frontendKey   = "%s/frontends/%s.%s/frontend"
 	middlewareKey = "%s/frontends/%s.%s/middlewares/%s"
 	backendKey    = "%s/backends/%s/backend"
