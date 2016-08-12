@@ -32,7 +32,7 @@ type Config struct {
 
 func NewRegistry(config Config) *Registry {
 	return &Registry{
-		etcdClient: etcd.NewClient([]string{"http://127.0.0.1:4001"}),
+		etcdClient: etcd.NewClient([]string{"http://127.0.0.1:2379"}),
 		config:     config,
 	}
 }

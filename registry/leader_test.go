@@ -24,7 +24,7 @@ type LeaderSuite struct {
 var _ = Suite(&LeaderSuite{})
 
 func (s *LeaderSuite) SetUpSuite(c *C) {
-	machines := []string{"http://127.0.0.1:4001"}
+	machines := []string{"http://127.0.0.1:2379"}
 	s.client = etcd.NewClient(machines)
 	s.registry = NewLeaderRegistry("customkey", "groupid", 15)
 	s.masterRegistration = &AppRegistration{Name: "name", Host: "master", Port: 12345}

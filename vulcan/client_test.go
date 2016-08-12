@@ -21,7 +21,7 @@ type ClientSuite struct {
 var _ = Suite(&ClientSuite{})
 
 func (s *ClientSuite) SetUpSuite(c *C) {
-	machines := []string{"http://127.0.0.1:4001"}
+	machines := []string{"http://127.0.0.1:2379"}
 	s.etcd = etcd.NewClient(machines)
 	s.client = NewClient("clienttest")
 }

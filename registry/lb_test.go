@@ -25,7 +25,7 @@ type LBRegistrySuite struct {
 var _ = Suite(&LBRegistrySuite{})
 
 func (s *LBRegistrySuite) SetUpSuite(c *C) {
-	machines := []string{"http://127.0.0.1:4001"}
+	machines := []string{"http://127.0.0.1:2379"}
 	s.client = etcd.NewClient(machines)
 	s.client.Delete("customkey", true)
 
@@ -41,7 +41,8 @@ func (s *LBRegistrySuite) SetUpSuite(c *C) {
 }
 
 func (s *LBRegistrySuite) TestRegisterAppCreatesBackend(c *C) {
-	_ = s.registry.RegisterApp(s.appRegistration)
+	err := s.registry.RegisterApp(s.appRegistration)
+	c.Assert(err, IsNil)
 	backend, err := s.client.Get("customkey/backends/name/backend", false, false)
 
 	c.Assert(err, IsNil)
