@@ -161,7 +161,7 @@ func ReplyError(w http.ResponseWriter, err error) {
 	Reply(w, response, status)
 }
 
-// Helper that replies with the 500 code and happened error message.
+// ReplyInternalError logs the error message and replies with a 500 status code.
 func ReplyInternalError(w http.ResponseWriter, message string) {
 	log.Errorf("Internal server error: %v", message)
 	Reply(w, Response{"message": message}, http.StatusInternalServerError)
