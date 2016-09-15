@@ -81,7 +81,7 @@ func responseAndStatusFor(err error) (Response, int) {
 	case ConflictError:
 		return Response{"message": err.Error()}, http.StatusConflict
 	case RateLimitError:
-		return Response{"message": err.Error()}, http.StatusTooManyRequests
+		return Response{"message": err.Error()}, 429 // temporary until we upgrade to Go 1.6 and can use http.StatusTooManyRequests
 	default:
 		return Response{"message": "Internal Server Error"}, http.StatusInternalServerError
 	}
