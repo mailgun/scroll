@@ -40,6 +40,7 @@ func (s *LeaderRegistry) RegisterApp(registration *AppRegistration) error {
 	if err != nil {
 		return err
 	}
+	endpoint.Settings = registration.VulcandSettings
 
 	err = s.client.RegisterBackend(endpoint)
 	if err != nil {
