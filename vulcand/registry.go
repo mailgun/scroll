@@ -9,7 +9,6 @@ import (
 
 	etcd "github.com/coreos/etcd/client"
 	"github.com/mailgun/log"
-	"github.com/mailgun/scroll/vulcand/middleware"
 )
 
 const (
@@ -73,7 +72,7 @@ func NewRegistry(cfg Config, appname, ip string, port int) (*Registry, error) {
 	return &c, nil
 }
 
-func (r *Registry) AddFrontend(host, path string, methods []string, middlewares []middleware.T) {
+func (r *Registry) AddFrontend(host, path string, methods []string, middlewares []Middleware) {
 	r.frontendSpecs = append(r.frontendSpecs, newFrontendSpec(r.backendSpec.AppName, host, path, methods, middlewares))
 }
 

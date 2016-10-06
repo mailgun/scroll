@@ -5,8 +5,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-
-	"github.com/mailgun/scroll/vulcand/middleware"
 )
 
 const (
@@ -22,7 +20,7 @@ type frontendSpec struct {
 	Methods     []string
 	AppName     string
 	Options     frontendOptions
-	Middlewares []middleware.T
+	Middlewares []Middleware
 }
 
 type frontendOptions struct {
@@ -34,7 +32,7 @@ func (fo frontendOptions) spec() string {
 	return fmt.Sprintf(`{"FailoverPredicate":"%s","PassHostHeader":%t}`, fo.FailoverPredicate, fo.PassHostHeader)
 }
 
-func newFrontendSpec(appname, host, path string, methods []string, middlewares []middleware.T) *frontendSpec {
+func newFrontendSpec(appname, host, path string, methods []string, middlewares []Middleware) *frontendSpec {
 	path = normalizePath(path)
 	return &frontendSpec{
 		ID:      makeLocationID(methods, path),

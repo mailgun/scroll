@@ -1,6 +1,10 @@
 package middleware
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/mailgun/scroll/vulcand"
+)
 
 const (
 	ConnLimitType = "connlimit"
@@ -14,11 +18,11 @@ type ConnLimit struct {
 	Connections int    `json:"Connections"`
 }
 
-func NewConnLimit(spec ConnLimit) T {
-	return T{
+func NewConnLimit(spec ConnLimit) vulcand.Middleware {
+	return vulcand.Middleware{
 		Type:     ConnLimitType,
 		ID:       ConnLimitID,
-		Priority: DefaultPriority,
+		Priority: vulcand.DefaultMiddlewarePriority,
 		Spec:     spec,
 	}
 }

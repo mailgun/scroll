@@ -3,6 +3,8 @@ package middleware
 import (
 	"fmt"
 	"time"
+
+	"github.com/mailgun/scroll/vulcand"
 )
 
 const (
@@ -22,11 +24,11 @@ type CircuitBreaker struct {
 	OnStandby        string        `json:"OnStandby"`
 }
 
-func NewCircuitBreaker(spec CircuitBreaker) T {
-	return T{
+func NewCircuitBreaker(spec CircuitBreaker) vulcand.Middleware {
+	return vulcand.Middleware{
 		Type:     CircuitBreakerType,
 		ID:       CircuitBreakerID,
-		Priority: DefaultPriority,
+		Priority: vulcand.DefaultMiddlewarePriority,
 		Spec:     spec,
 	}
 }

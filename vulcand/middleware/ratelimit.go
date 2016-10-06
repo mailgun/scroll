@@ -1,6 +1,10 @@
 package middleware
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/mailgun/scroll/vulcand"
+)
 
 const (
 	RateLimitType = "ratelimit"
@@ -16,11 +20,11 @@ type RateLimit struct {
 	Burst         int    `json:"Burst"`
 }
 
-func NewRateLimit(spec RateLimit) T {
-	return T{
+func NewRateLimit(spec RateLimit) vulcand.Middleware {
+	return vulcand.Middleware{
 		Type:     RateLimitType,
 		ID:       RateLimitID,
-		Priority: DefaultPriority,
+		Priority: vulcand.DefaultMiddlewarePriority,
 		Spec:     spec,
 	}
 }

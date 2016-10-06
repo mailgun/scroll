@@ -11,7 +11,6 @@ import (
 	"github.com/mailgun/log"
 	"github.com/mailgun/manners"
 	"github.com/mailgun/metrics"
-	"github.com/mailgun/scroll/vulcand/middleware"
 	"github.com/mailgun/scroll/vulcand"
 )
 
@@ -51,7 +50,8 @@ type AppConfig struct {
 	ProtectedAPIHost string
 	ProtectedAPIURL  string
 
-	Vulcand vulcand.Config
+	// Vulcand config must be provided to enable registration in Etcd.
+	Vulcand *vulcand.Config
 
 	// metrics service used for emitting the app's real-time metrics
 	Client metrics.Client
@@ -64,23 +64,24 @@ func NewApp() (*App, error) {
 
 // Create a new app with the provided configuration.
 func NewAppWithConfig(config AppConfig) (*App, error) {
-	router := config.Router
-	if router == nil {
-		router = mux.NewRouter()
-	}
-	router.HandleFunc("/_ping", handlePing).Methods("GET")
+	app := App{Config: config}
 
-	vulcandReg, err := vulcand.NewRegistry(config.Vulcand, config.Name, config.ListenIP, config.ListenPort)
-	if err != nil {
-		return nil, err
+	app.router = config.Router
+	if app.router == nil {
+		app.router = mux.NewRouter()
+	}
+	app.router.HandleFunc("/_ping", handlePing).Methods("GET")
+
+	if config.Vulcand != nil {
+		var err error
+		app.vulcandReg, err = vulcand.NewRegistry(*config.Vulcand, config.Name, config.ListenIP, config.ListenPort)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	return &App{
-		Config:      config,
-		router:      router,
-		vulcandReg: vulcandReg,
-		stats:       newAppStats(config.Client),
-	}, nil
+	app.stats = newAppStats(config.Client)
+	return &app, nil
 }
 
 // Register a handler function.
@@ -102,13 +103,13 @@ func (app *App) AddHandler(spec Spec) error {
 	}
 
 	for _, path := range spec.Paths {
-		// register a handler in the router
 		route := app.router.HandleFunc(path, handler).Methods(spec.Methods...)
 		if len(spec.Headers) != 0 {
 			route.Headers(spec.Headers...)
 		}
-
-		app.registerFrontend(spec.Methods, path, spec.Scopes, spec.Middlewares)
+		if app.vulcandReg != nil {
+			app.registerFrontend(spec.Methods, path, spec.Scopes, spec.Middlewares)
+		}
 	}
 
 	return nil
@@ -133,18 +134,19 @@ func (app *App) IsPublicRequest(request *http.Request) bool {
 //
 // Supports graceful shutdown on 'kill' and 'int' signals.
 func (app *App) Run() error {
-	err := app.vulcandReg.Start()
-	if err != nil {
-		return fmt.Errorf("failed to start vulcand registry: err=(%s)", err)
+	if app.vulcandReg != nil {
+		err := app.vulcandReg.Start()
+		if err != nil {
+			return fmt.Errorf("failed to start vulcand registry: err=(%s)", err)
+		}
+		heartbeatCh := make(chan os.Signal, 1)
+		signal.Notify(heartbeatCh, syscall.SIGUSR1)
+		go func() {
+			sig := <-heartbeatCh
+			log.Infof("Got signal %v, canceling vulcand registration", sig)
+			app.vulcandReg.Stop()
+		}()
 	}
-
-	heartbeatCh := make(chan os.Signal, 1)
-	signal.Notify(heartbeatCh, syscall.SIGUSR1)
-	go func() {
-		sig := <-heartbeatCh
-		log.Infof("Got signal %v, canceling vulcand registration", sig)
-		app.vulcandReg.Stop()
-	}()
 
 	// listen for a shutdown signal
 	exitCh := make(chan os.Signal, 1)
@@ -152,7 +154,9 @@ func (app *App) Run() error {
 	go func() {
 		s := <-exitCh
 		log.Infof("Got signal %v, shutting down", s)
-		app.vulcandReg.Stop()
+		if app.vulcandReg != nil {
+			app.vulcandReg.Stop()
+		}
 		manners.Close()
 	}()
 
@@ -161,7 +165,7 @@ func (app *App) Run() error {
 }
 
 // registerLocation is a helper for registering handlers in vulcan.
-func (app *App) registerFrontend(methods []string, path string, scopes []Scope, middlewares []middleware.T) error {
+func (app *App) registerFrontend(methods []string, path string, scopes []Scope, middlewares []vulcand.Middleware) error {
 	for _, scope := range scopes {
 		host, err := app.apiHostForScope(scope)
 		if err != nil {
