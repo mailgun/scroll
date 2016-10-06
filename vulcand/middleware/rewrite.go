@@ -1,6 +1,10 @@
 package middleware
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/mailgun/scroll/vulcand"
+)
 
 const (
 	RewriteType = "rewrite"
@@ -16,11 +20,11 @@ type Rewrite struct {
 	Redirect    bool   `json:"Redirect"`
 }
 
-func NewRewrite(spec Rewrite) T {
-	return T{
+func NewRewrite(spec Rewrite) vulcand.Middleware {
+	return vulcand.Middleware{
 		Type:     RewriteType,
 		ID:       RewriteID,
-		Priority: DefaultPriority,
+		Priority: vulcand.DefaultMiddlewarePriority,
 		Spec:     spec,
 	}
 }

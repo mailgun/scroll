@@ -10,8 +10,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/mailgun/log"
-
-	"github.com/mailgun/scroll/vulcand/middleware"
+	"github.com/mailgun/scroll/vulcand"
 )
 
 // Response objects that apps' handlers are advised to return.
@@ -45,7 +44,7 @@ type Spec struct {
 
 	// Vulcan middlewares to register with the handler. When registering, middlewares are assigned priorities
 	// according to their positions in the list: a middleware that appears in the list earlier is executed first.
-	Middlewares []middleware.T
+	Middlewares []vulcand.Middleware
 
 	// When Handler or HandlerWithBody is used, this function will be called after every request with a log message.
 	// If nil, defaults to github.com/mailgun/log.Infof.

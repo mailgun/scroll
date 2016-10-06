@@ -11,7 +11,6 @@ import (
 	"github.com/mailgun/log"
 	"github.com/mailgun/manners"
 	"github.com/mailgun/metrics"
-	"github.com/mailgun/scroll/vulcand/middleware"
 	"github.com/mailgun/scroll/vulcand"
 )
 
@@ -76,10 +75,10 @@ func NewAppWithConfig(config AppConfig) (*App, error) {
 	}
 
 	return &App{
-		Config:      config,
-		router:      router,
+		Config:     config,
+		router:     router,
 		vulcandReg: vulcandReg,
-		stats:       newAppStats(config.Client),
+		stats:      newAppStats(config.Client),
 	}, nil
 }
 
@@ -161,7 +160,7 @@ func (app *App) Run() error {
 }
 
 // registerLocation is a helper for registering handlers in vulcan.
-func (app *App) registerFrontend(methods []string, path string, scopes []Scope, middlewares []middleware.T) error {
+func (app *App) registerFrontend(methods []string, path string, scopes []Scope, middlewares []vulcand.Middleware) error {
 	for _, scope := range scopes {
 		host, err := app.apiHostForScope(scope)
 		if err != nil {

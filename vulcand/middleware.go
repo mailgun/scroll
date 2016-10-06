@@ -1,12 +1,10 @@
-package middleware
+package vulcand
 
 import "fmt"
 
-const (
-	DefaultPriority = 1
-)
+const DefaultMiddlewarePriority = 1
 
-type T struct {
+type Middleware struct {
 	Type     string         `json:"Type"`
 	ID       string         `json:"Id"`
 	Priority int            `json:"Priority"`
@@ -15,7 +13,7 @@ type T struct {
 
 type MiddlewareSpec interface{}
 
-func (m T) String() string {
+func (m Middleware) String() string {
 	return fmt.Sprintf("Middleware(Type=%v, ID=%v, Priority=%v, Spec=%v)",
 		m.Type, m.ID, m.Priority, m.Spec)
 }
