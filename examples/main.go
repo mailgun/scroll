@@ -4,9 +4,9 @@ import (
 	"flag"
 	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/mailgun/scroll"
-	"github.com/mailgun/scroll/registry"
 )
 
 var host string
@@ -19,13 +19,12 @@ func init() {
 }
 
 func main() {
-	name := "leader"
+	name := "loadbalancer"
 
 	appConfig := scroll.AppConfig{
 		Name:             name,
 		ListenIP:         host,
 		ListenPort:       port,
-		Registry:         registry.NewLeaderRegistry("scrollexamples/leader", "master", 5),
 		PublicAPIHost:    "public.local",
 		ProtectedAPIHost: "private.local",
 	}
@@ -39,12 +38,15 @@ func main() {
 
 	fmt.Printf("Starting %s on %s:%d...\n", name, host, port)
 
-	app := scroll.NewAppWithConfig(appConfig)
+	app, err := scroll.NewAppWithConfig(appConfig)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 	app.AddHandler(handlerSpec)
 	app.Run()
 }
 
 func index(w http.ResponseWriter, r *http.Request, params map[string]string) (interface{}, error) {
-	message := fmt.Sprintf("Running on %s:%d", host, port)
-	return scroll.Response{"message": message}, nil
+	return scroll.Response{"message": "Hello World"}, nil
 }

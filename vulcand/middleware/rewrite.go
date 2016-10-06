@@ -16,8 +16,8 @@ type Rewrite struct {
 	Redirect    bool   `json:"Redirect"`
 }
 
-func NewRewrite(spec Rewrite) Middleware {
-	return Middleware{
+func NewRewrite(spec Rewrite) T {
+	return T{
 		Type:     RewriteType,
 		ID:       RewriteID,
 		Priority: DefaultPriority,

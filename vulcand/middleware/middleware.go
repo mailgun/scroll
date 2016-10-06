@@ -6,7 +6,7 @@ const (
 	DefaultPriority = 1
 )
 
-type Middleware struct {
+type T struct {
 	Type     string         `json:"Type"`
 	ID       string         `json:"Id"`
 	Priority int            `json:"Priority"`
@@ -15,7 +15,7 @@ type Middleware struct {
 
 type MiddlewareSpec interface{}
 
-func (m Middleware) String() string {
+func (m T) String() string {
 	return fmt.Sprintf("Middleware(Type=%v, ID=%v, Priority=%v, Spec=%v)",
 		m.Type, m.ID, m.Priority, m.Spec)
 }

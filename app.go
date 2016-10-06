@@ -6,15 +6,13 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/mailgun/log"
 	"github.com/mailgun/manners"
 	"github.com/mailgun/metrics"
-
-	"github.com/mailgun/scroll/registry"
-	"github.com/mailgun/scroll/vulcan/middleware"
+	"github.com/mailgun/scroll/vulcand/middleware"
+	"github.com/mailgun/scroll/vulcand"
 )
 
 const (
@@ -26,17 +24,14 @@ const (
 
 	// Suggested max allowed amount of entries that batch APIs can accept (e.g. batch uploads).
 	MaxBatchSize = 1000
-
-	// Interval between Vulcand heartbeats (if the app if configured to register in it).
-	defaultRegisterInterval = 2 * time.Second
 )
 
 // Represents an app.
 type App struct {
-	Config      AppConfig
-	router      *mux.Router
-	stats       *appStats
-	heartbeater *registry.Heartbeater
+	Config     AppConfig
+	router     *mux.Router
+	stats      *appStats
+	vulcandReg *vulcand.Registry
 }
 
 // Represents a configuration object an app is created with.
@@ -56,41 +51,36 @@ type AppConfig struct {
 	ProtectedAPIHost string
 	ProtectedAPIURL  string
 
-	// how to register the app's endpoint and handlers in vulcan
-	Registry registry.Registry
-	Interval time.Duration
+	Vulcand vulcand.Config
 
 	// metrics service used for emitting the app's real-time metrics
 	Client metrics.Client
 }
 
 // Create a new app.
-func NewApp() *App {
+func NewApp() (*App, error) {
 	return NewAppWithConfig(AppConfig{})
 }
 
 // Create a new app with the provided configuration.
-func NewAppWithConfig(config AppConfig) *App {
+func NewAppWithConfig(config AppConfig) (*App, error) {
 	router := config.Router
 	if router == nil {
 		router = mux.NewRouter()
 	}
 	router.HandleFunc("/_ping", handlePing).Methods("GET")
 
-	interval := config.Interval
-	if interval == 0 {
-		interval = defaultRegisterInterval
+	vulcandReg, err := vulcand.NewRegistry(config.Vulcand, config.Name, config.ListenIP, config.ListenPort)
+	if err != nil {
+		return nil, err
 	}
-
-	registration := &registry.AppRegistration{Name: config.Name, Host: config.ListenIP, Port: config.ListenPort}
-	heartbeater := registry.NewHeartbeater(registration, config.Registry, interval)
 
 	return &App{
 		Config:      config,
 		router:      router,
-		heartbeater: heartbeater,
+		vulcandReg: vulcandReg,
 		stats:       newAppStats(config.Client),
-	}
+	}, nil
 }
 
 // Register a handler function.
@@ -118,7 +108,7 @@ func (app *App) AddHandler(spec Spec) error {
 			route.Headers(spec.Headers...)
 		}
 
-		app.registerLocation(spec.Methods, path, spec.Scopes, spec.Middlewares)
+		app.registerFrontend(spec.Methods, path, spec.Scopes, spec.Middlewares)
 	}
 
 	return nil
@@ -143,24 +133,26 @@ func (app *App) IsPublicRequest(request *http.Request) bool {
 //
 // Supports graceful shutdown on 'kill' and 'int' signals.
 func (app *App) Run() error {
-	// toggle heartbeat on SIGUSR1
-	go func() {
-		app.heartbeater.Start()
-		heartbeatChan := make(chan os.Signal, 1)
-		signal.Notify(heartbeatChan, syscall.SIGUSR1)
+	err := app.vulcandReg.Start()
+	if err != nil {
+		return fmt.Errorf("failed to start vulcand registry: err=(%s)", err)
+	}
 
-		for s := range heartbeatChan {
-			log.Infof("Received signal: %v, toggling heartbeat", s)
-			app.heartbeater.Toggle()
-		}
+	heartbeatCh := make(chan os.Signal, 1)
+	signal.Notify(heartbeatCh, syscall.SIGUSR1)
+	go func() {
+		sig := <-heartbeatCh
+		log.Infof("Got signal %v, canceling vulcand registration", sig)
+		app.vulcandReg.Stop()
 	}()
 
 	// listen for a shutdown signal
+	exitCh := make(chan os.Signal, 1)
+	signal.Notify(exitCh, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM)
 	go func() {
-		exitChan := make(chan os.Signal, 1)
-		signal.Notify(exitChan, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM)
-		s := <-exitChan
-		log.Infof("Got shutdown signal: %v", s)
+		s := <-exitCh
+		log.Infof("Got signal %v, shutting down", s)
+		app.vulcandReg.Stop()
 		manners.Close()
 	}()
 
@@ -169,34 +161,15 @@ func (app *App) Run() error {
 }
 
 // registerLocation is a helper for registering handlers in vulcan.
-func (app *App) registerLocation(methods []string, path string, scopes []Scope, middlewares []middleware.Middleware) {
+func (app *App) registerFrontend(methods []string, path string, scopes []Scope, middlewares []middleware.T) error {
 	for _, scope := range scopes {
-		app.registerLocationForScope(methods, path, scope, middlewares)
+		host, err := app.apiHostForScope(scope)
+		if err != nil {
+			return err
+		}
+		app.vulcandReg.AddFrontend(host, path, methods, middlewares)
 	}
-}
-
-// registerLocationForScope registers a location with a specified scope.
-func (app *App) registerLocationForScope(methods []string, path string, scope Scope, middlewares []middleware.Middleware) {
-	host, err := app.apiHostForScope(scope)
-	if err != nil {
-		log.Errorf("Failed to register a location: %v", err)
-		return
-	}
-	app.registerLocationForHost(methods, path, host, middlewares)
-}
-
-// registerLocationForHost registers a location for a specified hostname.
-func (app *App) registerLocationForHost(methods []string, path, host string, middlewares []middleware.Middleware) {
-	r := &registry.HandlerRegistration{
-		Name:        app.Config.Name,
-		Host:        host,
-		Path:        path,
-		Methods:     methods,
-		Middlewares: middlewares,
-	}
-	app.Config.Registry.RegisterHandler(r)
-
-	log.Infof("Registered: %v", r)
+	return nil
 }
 
 // apiHostForScope is a helper that returns an appropriate API hostname for a provided scope.

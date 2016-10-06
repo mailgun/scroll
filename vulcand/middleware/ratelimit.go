@@ -16,8 +16,8 @@ type RateLimit struct {
 	Burst         int    `json:"Burst"`
 }
 
-func NewRateLimit(spec RateLimit) Middleware {
-	return Middleware{
+func NewRateLimit(spec RateLimit) T {
+	return T{
 		Type:     RateLimitType,
 		ID:       RateLimitID,
 		Priority: DefaultPriority,
