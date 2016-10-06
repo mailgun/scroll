@@ -14,8 +14,8 @@ type ConnLimit struct {
 	Connections int    `json:"Connections"`
 }
 
-func NewConnLimit(spec ConnLimit) Middleware {
-	return Middleware{
+func NewConnLimit(spec ConnLimit) T {
+	return T{
 		Type:     ConnLimitType,
 		ID:       ConnLimitID,
 		Priority: DefaultPriority,

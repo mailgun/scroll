@@ -22,8 +22,8 @@ type CircuitBreaker struct {
 	OnStandby        string        `json:"OnStandby"`
 }
 
-func NewCircuitBreaker(spec CircuitBreaker) Middleware {
-	return Middleware{
+func NewCircuitBreaker(spec CircuitBreaker) T {
+	return T{
 		Type:     CircuitBreakerType,
 		ID:       CircuitBreakerID,
 		Priority: DefaultPriority,
