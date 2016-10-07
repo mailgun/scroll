@@ -1,9 +1,9 @@
 package vulcand
 
 import (
+	"errors"
 	"fmt"
 	"os"
-	"errors"
 
 	"github.com/mailgun/iptools"
 )
@@ -14,12 +14,12 @@ type backendSpec struct {
 	URL     string
 }
 
-func newBackendSpec(appname, ip string, port int) (*backendSpec, error) {
+func newBackendSpec(appName, ip string, port int) (*backendSpec, error) {
 	id, err := makeEndpointID(port)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make endpoint ID: %v", err)
 	}
-	return newBackendSpecWithID(id, appname, ip, port)
+	return newBackendSpecWithID(id, appName, ip, port)
 }
 
 func newBackendSpecWithID(id string, appname string, ip string, port int) (*backendSpec, error) {
@@ -29,8 +29,8 @@ func newBackendSpecWithID(id string, appname string, ip string, port int) (*back
 	}
 	return &backendSpec{
 		AppName: appname,
-		ID:   id,
-		URL:  url,
+		ID:      id,
+		URL:     url,
 	}, nil
 }
 
@@ -66,4 +66,3 @@ func makeEndpointURL(listenIP string, listenPort int) (string, error) {
 	}
 	return fmt.Sprintf("http://%v:%v", privateIPs[0], listenPort), nil
 }
-

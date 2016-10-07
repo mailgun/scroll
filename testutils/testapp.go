@@ -18,8 +18,8 @@ type TestApp struct {
 func NewTestApp() *TestApp {
 	router := mux.NewRouter()
 	config := scroll.AppConfig{
-		Name:     "test",
-		Router:   router}
+		Name:   "test",
+		Router: router}
 
 	app, err := scroll.NewAppWithConfig(config)
 	if err != nil {
