@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -51,6 +52,19 @@ type Spec struct {
 	Logger func(format string, a ...interface{})
 }
 
+// Given a map of parameters url decode each parameter
+func DecodeParams(src map[string]string) map[string]string {
+	results := make(map[string]string, len(src))
+	for key, param := range src {
+		encoded, err := url.QueryUnescape(param)
+		if err != nil {
+			encoded = param
+		}
+		results[key] = encoded
+	}
+	return results
+}
+
 // Defines the signature of a handler function that can be registered by an app.
 //
 // The 3rd parameter is a map of variables extracted from the request path, e.g. if a request path was:
@@ -74,7 +88,7 @@ func MakeHandler(app *App, fn HandlerFunc, spec Spec) http.HandlerFunc {
 		}
 
 		start := time.Now()
-		response, err := fn(w, r, mux.Vars(r))
+		response, err := fn(w, r, DecodeParams(mux.Vars(r)))
 		elapsedTime := time.Since(start)
 
 		var status int

@@ -69,6 +69,7 @@ func NewAppWithConfig(config AppConfig) (*App, error) {
 	app.router = config.Router
 	if app.router == nil {
 		app.router = mux.NewRouter()
+		app.router.UseEncodedPath()
 	}
 	app.router.HandleFunc("/_ping", handlePing).Methods("GET")
 
