@@ -92,6 +92,10 @@ func NewAppWithConfig(config AppConfig) (*App, error) {
 func (app *App) AddHandler(spec Spec) error {
 	var handler http.HandlerFunc
 
+	if spec.LogRequest == nil {
+		spec.LogRequest = logRequest
+	}
+
 	// make a handler depending on the function provided in the spec
 	if spec.RawHandler != nil {
 		handler = spec.RawHandler

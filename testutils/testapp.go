@@ -17,6 +17,7 @@ type TestApp struct {
 // NewTestApp creates a new app should be used in unit tests.
 func NewTestApp() *TestApp {
 	router := mux.NewRouter()
+	router.UseEncodedPath()
 	config := scroll.AppConfig{
 		Name:   "test",
 		Router: router}
