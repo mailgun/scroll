@@ -16,22 +16,22 @@ func TestClient(t *testing.T) {
 	TestingT(t)
 }
 
-type MiddlewareSuite struct {
+type RegistrySuite struct {
 	etcdKeyAPI etcd.KeysAPI
 	ctx        context.Context
 	cancelFunc context.CancelFunc
 	r          *vulcand.Registry
 }
 
-var _ = Suite(&MiddlewareSuite{})
+var _ = Suite(&RegistrySuite{})
 
-func (s *MiddlewareSuite) SetUpSuite(c *C) {
+func (s *RegistrySuite) SetUpSuite(c *C) {
 	etcdClt, err := etcd.New(etcd.Config{Endpoints: []string{"http://127.0.0.1:2379"}})
 	c.Assert(err, IsNil)
 	s.etcdKeyAPI = etcd.NewKeysAPI(etcdClt)
 }
 
-func (s *MiddlewareSuite) SetUpTest(c *C) {
+func (s *RegistrySuite) SetUpTest(c *C) {
 	s.ctx, s.cancelFunc = context.WithCancel(context.Background())
 	s.etcdKeyAPI.Delete(s.ctx, testChroot, &etcd.DeleteOptions{Recursive: true})
 	var err error
@@ -39,12 +39,12 @@ func (s *MiddlewareSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *MiddlewareSuite) TearDownTest(c *C) {
+func (s *RegistrySuite) TearDownTest(c *C) {
 	s.r.Stop()
 	s.cancelFunc()
 }
 
-func (s *MiddlewareSuite) TestMiddlewareRegistration(c *C) {
+func (s *RegistrySuite) TestMiddlewareRegistration(c *C) {
 	s.r.AddFrontend("mail.gun", "/hello/kitty", []string{"get"}, []vulcand.Middleware{
 		NewRateLimit(RateLimit{
 			Variable:      "host",

@@ -28,16 +28,16 @@ type Config struct {
 
 type Registry struct {
 	cfg           Config
-	etcdKeysAPI   etcd.KeysAPI
 	backendSpec   *backendSpec
 	frontendSpecs []*frontendSpec
+	etcdKeysAPI   etcd.KeysAPI
 	ctx           context.Context
 	cancelFunc    context.CancelFunc
 	wg            sync.WaitGroup
 }
 
-func NewRegistry(cfg Config, appName, ip string, port int) (*Registry, error) {
-	backendSpec, err := newBackendSpec(appName, ip, port)
+func NewRegistry(cfg Config, appname, ip string, port int) (*Registry, error) {
+	backendSpec, err := newBackendSpec(appname, ip, port)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create backend: err=(%s)", err)
 	}
@@ -77,8 +77,11 @@ func (r *Registry) AddFrontend(host, path string, methods []string, middlewares 
 }
 
 func (r *Registry) Start() error {
-	if err := r.registerBackend(r.backendSpec); err != nil {
-		return fmt.Errorf("failed to register backend: err=(%v)", err)
+	if err := r.registerBackendType(r.backendSpec); err != nil {
+		return fmt.Errorf("failed to register backend type: err=(%v)", err)
+	}
+	if err := r.registerBackendServer(r.backendSpec, r.cfg.TTL); err != nil {
+		return fmt.Errorf("failed to register backend server: err=(%v)", err)
 	}
 	r.wg.Add(1)
 	go r.heartbeat()
@@ -99,36 +102,38 @@ func (r *Registry) Stop() {
 
 func (r *Registry) heartbeat() {
 	defer r.wg.Done()
-	backendServerKey := fmt.Sprintf(serverFmt, r.cfg.Chroot, r.backendSpec.AppName, r.backendSpec.ID)
-	backendServerVal := r.backendSpec.serverSpec()
 	tick := time.NewTicker(r.cfg.TTL * 3 / 4)
 	for {
 		select {
 		case <-tick.C:
-			if _, err := r.etcdKeysAPI.Set(r.ctx, backendServerKey, "", &etcd.SetOptions{PrevExist: etcd.PrevExist, Refresh: true, TTL: r.cfg.TTL}); err != nil {
-				log.Errorf("Server TTL refresh failed: err=(%v)", err)
-				if _, err := r.etcdKeysAPI.Set(r.ctx, backendServerKey, backendServerVal, &etcd.SetOptions{TTL: r.cfg.TTL}); err != nil {
-					log.Errorf("Server create failed: err=(%v)", err)
-				}
+			if err := r.registerBackendServer(r.backendSpec, r.cfg.TTL); err != nil {
+				log.Errorf("Heartbeat failed: err=(%v)", err)
 			}
 		case <-r.ctx.Done():
-			_, err := r.etcdKeysAPI.Delete(context.Background(), backendServerKey, nil)
+			err := r.removeBackendServer(r.backendSpec)
 			log.Infof("Heartbeat stopped: err=(%v)", err)
 			return
 		}
 	}
 }
 
-func (r *Registry) registerBackend(bes *backendSpec) error {
+func (r *Registry) registerBackendType(bes *backendSpec) error {
 	betKey := fmt.Sprintf(backendFmt, r.cfg.Chroot, bes.AppName)
 	betVal := bes.typeSpec()
 	_, err := r.etcdKeysAPI.Set(r.ctx, betKey, betVal, nil)
-	if err != nil {
-		return err
-	}
+	return err
+}
+
+func (r *Registry) registerBackendServer(bes *backendSpec, ttl time.Duration) error {
 	besKey := fmt.Sprintf(serverFmt, r.cfg.Chroot, bes.AppName, bes.ID)
 	besVar := bes.serverSpec()
-	_, err = r.etcdKeysAPI.Set(r.ctx, besKey, besVar, &etcd.SetOptions{TTL: r.cfg.TTL})
+	_, err := r.etcdKeysAPI.Set(r.ctx, besKey, besVar, &etcd.SetOptions{TTL: ttl})
+	return err
+}
+
+func (r *Registry) removeBackendServer(bes *backendSpec) error {
+	besKey := fmt.Sprintf(serverFmt, r.cfg.Chroot, bes.AppName, bes.ID)
+	_, err := r.etcdKeysAPI.Delete(context.Background(), besKey, nil)
 	return err
 }
 
