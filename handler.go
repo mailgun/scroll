@@ -49,7 +49,8 @@ type Spec struct {
 
 	// When Handler or HandlerWithBody is used, this function will be called after every request with a log message.
 	// If nil, defaults to github.com/mailgun/log.Infof.
-	Logger func(format string, a ...interface{})
+	LogRequest func(r *http.Request, status int, elapsedTime time.Duration, err error)
+
 }
 
 // Given a map of parameters url decode each parameter
@@ -98,12 +99,7 @@ func MakeHandler(app *App, fn HandlerFunc, spec Spec) http.HandlerFunc {
 			status = http.StatusOK
 		}
 
-		logInfo := spec.Logger
-		if logInfo == nil {
-			logInfo = log.Infof
-		}
-		logInfo("Request(Status=%v, Method=%v, Path=%v, Form=%v, Time=%v, Error=%v)",
-			status, r.Method, r.URL, r.Form, elapsedTime, err)
+		spec.LogRequest(r, status, elapsedTime, err)
 
 		app.stats.TrackRequest(spec.MetricName, status, elapsedTime)
 
@@ -141,8 +137,7 @@ func MakeHandlerWithBody(app *App, fn HandlerWithBodyFunc, spec Spec) http.Handl
 			status = http.StatusOK
 		}
 
-		log.Infof("Request(Status=%v, Method=%v, Path=%v, Form=%v, Time=%v, Error=%v)",
-			status, r.Method, r.URL, r.Form, elapsedTime, err)
+		spec.LogRequest(r, status, elapsedTime, err)
 
 		app.stats.TrackRequest(spec.MetricName, status, elapsedTime)
 
@@ -208,8 +203,16 @@ func parseForm(r *http.Request) error {
 	}
 }
 
+//Log request
+func logRequest(r *http.Request, status int, elapsedTime time.Duration, err error) {
+	log.Infof("Request(Status=%v, Method=%v, Path=%v, Form=%v, Time=%v, Error=%v)",
+		status, r.Method, r.URL, r.Form, elapsedTime, err)
+}
+
 // Determine whether the request is multipart/form-data or not.
 func isMultipart(r *http.Request) bool {
 	contentType := r.Header.Get("Content-Type")
 	return strings.HasPrefix(contentType, "multipart/form-data")
 }
+
+
