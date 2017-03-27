@@ -66,6 +66,10 @@ func NewApp() (*App, error) {
 func NewAppWithConfig(config AppConfig) (*App, error) {
 	app := App{Config: config}
 
+	if LogRequest == nil {
+		LogRequest = logRequest
+	}
+
 	app.router = config.Router
 	if app.router == nil {
 		app.router = mux.NewRouter()
@@ -91,10 +95,6 @@ func NewAppWithConfig(config AppConfig) (*App, error) {
 // the handler will be registered in the local etcd instance.
 func (app *App) AddHandler(spec Spec) error {
 	var handler http.HandlerFunc
-
-	if spec.LogRequest == nil {
-		spec.LogRequest = logRequest
-	}
 
 	// make a handler depending on the function provided in the spec
 	if spec.RawHandler != nil {
