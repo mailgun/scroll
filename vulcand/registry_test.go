@@ -43,51 +43,25 @@ func (s *RegistrySuite) TearDownTest(c *C) {
 	s.cancelFunc()
 }
 
-func (s *RegistrySuite) TestRegisterBackendType(c *C) {
+func (s *RegistrySuite) TestRegisterBackend(c *C) {
 	bes, err := newBackendSpecWithID("foo", "bar", "example.com", 8000)
 	c.Assert(err, IsNil)
 
 	// When
-	err = s.r.registerBackendType(bes)
+	err = s.r.registerBackend(bes)
 
 	// Then
 	c.Assert(err, IsNil)
+
 	res, err := s.etcdKeyAPI.Get(s.ctx, testChroot+"/backends/bar/backend", nil)
 	c.Assert(err, IsNil)
 	c.Assert(res.Node.Value, Equals, `{"Type":"http"}`)
 	c.Assert(res.Node.TTL, Equals, int64(0))
-}
 
-func (s *RegistrySuite) TestRegisterBackendServer(c *C) {
-	bes, err := newBackendSpecWithID("foo", "bar", "example.com", 8000)
-	c.Assert(err, IsNil)
-
-	// When
-	err = s.r.registerBackendServer(bes, 15*time.Second)
-
-	// Then
-	c.Assert(err, IsNil)
-	res, err := s.etcdKeyAPI.Get(s.ctx, testChroot+"/backends/bar/servers/foo", nil)
+	res, err = s.etcdKeyAPI.Get(s.ctx, testChroot+"/backends/bar/servers/foo", nil)
 	c.Assert(err, IsNil)
 	c.Assert(res.Node.Value, Equals, `{"URL":"http://example.com:8000"}`)
-	c.Assert(res.Node.TTL, Equals, int64(15))
-}
-
-func (s *RegistrySuite) TestRegisterBackendServerAgain(c *C) {
-	bes, err := newBackendSpecWithID("foo", "bar", "example.com", 8000)
-	c.Assert(err, IsNil)
-	err = s.r.registerBackendServer(bes, 15*time.Second)
-	c.Assert(err, IsNil)
-
-	// When
-	err = s.r.registerBackendServer(bes, 15*time.Second)
-
-	// Then
-	c.Assert(err, IsNil)
-	res, err := s.etcdKeyAPI.Get(s.ctx, testChroot+"/backends/bar/servers/foo", nil)
-	c.Assert(err, IsNil)
-	c.Assert(res.Node.Value, Equals, `{"URL":"http://example.com:8000"}`)
-	c.Assert(res.Node.TTL, Equals, int64(15))
+	c.Assert(res.Node.TTL, Equals, int64(defaultRegistrationTTL/time.Second))
 }
 
 func (s *RegistrySuite) TestRegisterFrontend(c *C) {
@@ -109,6 +83,28 @@ func (s *RegistrySuite) TestRegisterFrontend(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(res.Node.Value, Equals, `{"Type":"bar","Id":"bazz","Priority":0,"Middleware":"blah"}`)
 	c.Assert(res.Node.TTL, Equals, int64(0))
+}
+
+func (s *RegistrySuite) TestHeartbeat(c *C) {
+	s.r.cfg.TTL = time.Second
+	err := s.r.Start()
+	res, err := s.etcdKeyAPI.Get(s.ctx, testChroot+"/backends/app1/servers", &etcd.GetOptions{Recursive: true})
+	c.Assert(err, IsNil)
+	c.Assert(1, Equals, len(res.Node.Nodes))
+	serverNode := res.Node.Nodes[0]
+	c.Assert(serverNode.Value, Equals, `{"URL":"http://192.168.19.2:8000"}`)
+	c.Assert(serverNode.TTL, Equals, int64(1))
+
+	// When
+	time.Sleep(3 * time.Second)
+
+	// Then
+	res, err = s.etcdKeyAPI.Get(s.ctx, testChroot+"/backends/app1/servers", &etcd.GetOptions{Recursive: true})
+	c.Assert(err, IsNil)
+	c.Assert(1, Equals, len(res.Node.Nodes))
+	serverNode = res.Node.Nodes[0]
+	c.Assert(serverNode.Value, Equals, `{"URL":"http://192.168.19.2:8000"}`)
+	c.Assert(serverNode.TTL, Equals, int64(1))
 }
 
 // When registry is stopped the backend server record is immediately removed,
