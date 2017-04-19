@@ -37,8 +37,8 @@ type Registry struct {
 	wg            sync.WaitGroup
 }
 
-func NewRegistry(cfg Config, appname, ip string, port int) (*Registry, error) {
-	backendSpec, err := newBackendSpec(appname, ip, port)
+func NewRegistry(cfg Config, appName, ip string, port int) (*Registry, error) {
+	backendSpec, err := newBackendSpec(appName, ip, port)
 	if err != nil {
 		return nil, fmt.Errorf("Failed to create backend: err=(%s)", err)
 	}

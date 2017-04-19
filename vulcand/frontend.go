@@ -36,7 +36,7 @@ func (fo frontendOptions) spec() string {
 	return fmt.Sprintf(`{"FailoverPredicate":"%s","PassHostHeader":%t}`, fo.FailoverPredicate, fo.PassHostHeader)
 }
 
-func newFrontendSpec(appname, host, path string, methods []string, middlewares []Middleware) *frontendSpec {
+func newFrontendSpec(appName, host, path string, methods []string, middlewares []Middleware) *frontendSpec {
 	path = normalizePath(path)
 	for i, m := range methods {
 		methods[i] = strings.ToUpper(m)
@@ -47,7 +47,7 @@ func newFrontendSpec(appname, host, path string, methods []string, middlewares [
 		Methods: methods,
 		URLPath: path,
 		Path:    makeLocationPath(methods, path),
-		AppName: appname,
+		AppName: appName,
 		Options: frontendOptions{
 			FailoverPredicate: defaultFailoverPredicate,
 			PassHostHeader:    defaultPassHostHeader,

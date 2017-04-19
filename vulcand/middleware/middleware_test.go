@@ -16,22 +16,22 @@ func TestClient(t *testing.T) {
 	TestingT(t)
 }
 
-type RegistrySuite struct {
+type MiddlewareSuite struct {
 	etcdKeyAPI etcd.KeysAPI
 	ctx        context.Context
 	cancelFunc context.CancelFunc
 	r          *vulcand.Registry
 }
 
-var _ = Suite(&RegistrySuite{})
+var _ = Suite(&MiddlewareSuite{})
 
-func (s *RegistrySuite) SetUpSuite(c *C) {
+func (s *MiddlewareSuite) SetUpSuite(c *C) {
 	etcdClt, err := etcd.New(etcd.Config{Endpoints: []string{"http://127.0.0.1:2379"}})
 	c.Assert(err, IsNil)
 	s.etcdKeyAPI = etcd.NewKeysAPI(etcdClt)
 }
 
-func (s *RegistrySuite) SetUpTest(c *C) {
+func (s *MiddlewareSuite) SetUpTest(c *C) {
 	s.ctx, s.cancelFunc = context.WithCancel(context.Background())
 	s.etcdKeyAPI.Delete(s.ctx, testChroot, &etcd.DeleteOptions{Recursive: true})
 	var err error
@@ -39,12 +39,12 @@ func (s *RegistrySuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *RegistrySuite) TearDownTest(c *C) {
+func (s *MiddlewareSuite) TearDownTest(c *C) {
 	s.r.Stop()
 	s.cancelFunc()
 }
 
-func (s *RegistrySuite) TestMiddlewareRegistration(c *C) {
+func (s *MiddlewareSuite) TestMiddlewareRegistration(c *C) {
 	s.r.AddFrontend("mail.gun", "/hello/kitty", []string{"get"}, []vulcand.Middleware{
 		NewRateLimit(RateLimit{
 			Variable:      "host",
@@ -79,7 +79,7 @@ func (s *RegistrySuite) TestMiddlewareRegistration(c *C) {
 
 	res, err := s.etcdKeyAPI.Get(s.ctx, testChroot+"/frontends/mail.gun.get.hello.kitty/frontend", nil)
 	c.Assert(err, IsNil)
-	c.Assert(res.Node.Value, Equals, `{"Type":"http","BackendId":"app1","Route":"Host(\"mail.gun\") && Method(\"get\") && Path(\"/hello/kitty\")","Settings":{"FailoverPredicate":"(IsNetworkError() || ResponseCode() == 503) && Attempts() <= 2","PassHostHeader":true}}`)
+	c.Assert(res.Node.Value, Equals, `{"Type":"http","BackendId":"app1","Route":"Host(\"mail.gun\") && Method(\"GET\") && Path(\"/hello/kitty\")","Settings":{"FailoverPredicate":"(IsNetworkError() || ResponseCode() == 503) && Attempts() <= 2","PassHostHeader":true}}`)
 	c.Assert(res.Node.TTL, Equals, int64(0))
 
 	res, err = s.etcdKeyAPI.Get(s.ctx, testChroot+"/frontends/mail.gun.get.hello.kitty/middlewares/rl1", nil)
@@ -94,12 +94,12 @@ func (s *RegistrySuite) TestMiddlewareRegistration(c *C) {
 
 	res, err = s.etcdKeyAPI.Get(s.ctx, testChroot+"/frontends/mailch.imp.put.post.pockemon.go/frontend", nil)
 	c.Assert(err, IsNil)
-	c.Assert(res.Node.Value, Equals, `{"Type":"http","BackendId":"app1","Route":"Host(\"mailch.imp\") && MethodRegexp(\"put|post\") && Path(\"/pockemon/go\")","Settings":{"FailoverPredicate":"(IsNetworkError() || ResponseCode() == 503) && Attempts() <= 2","PassHostHeader":true}}`)
+	c.Assert(res.Node.Value, Equals, `{"Type":"http","BackendId":"app1","Route":"Host(\"mailch.imp\") && MethodRegexp(\"PUT|POST\") && Path(\"/pockemon/go\")","Settings":{"FailoverPredicate":"(IsNetworkError() || ResponseCode() == 503) && Attempts() <= 2","PassHostHeader":true}}`)
 	c.Assert(res.Node.TTL, Equals, int64(0))
 
 	res, err = s.etcdKeyAPI.Get(s.ctx, testChroot+"/frontends/sendgr.ead.head.hail.ceasar/frontend", nil)
 	c.Assert(err, IsNil)
-	c.Assert(res.Node.Value, Equals, `{"Type":"http","BackendId":"app1","Route":"Host(\"sendgr.ead\") && Method(\"head\") && Path(\"/hail/ceasar\")","Settings":{"FailoverPredicate":"(IsNetworkError() || ResponseCode() == 503) && Attempts() <= 2","PassHostHeader":true}}`)
+	c.Assert(res.Node.Value, Equals, `{"Type":"http","BackendId":"app1","Route":"Host(\"sendgr.ead\") && Method(\"HEAD\") && Path(\"/hail/ceasar\")","Settings":{"FailoverPredicate":"(IsNetworkError() || ResponseCode() == 503) && Attempts() <= 2","PassHostHeader":true}}`)
 	c.Assert(res.Node.TTL, Equals, int64(0))
 
 	res, err = s.etcdKeyAPI.Get(s.ctx, testChroot+"/frontends/sendgr.ead.head.hail.ceasar/middlewares/cb1", nil)

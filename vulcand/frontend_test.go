@@ -1,8 +1,6 @@
 package vulcand
 
 import (
-	"fmt"
-
 	. "gopkg.in/check.v1"
 )
 
@@ -49,7 +47,7 @@ func (s *FrontendSuite) TestSpecAndHash(c *C) {
 		spec: `{"Type":"http","BackendId":"ghost","Route":"Host(\"example.com\") && Method(\"GET\") && Path(\"/v2/<domain>/events\")","Settings":{"FailoverPredicate":"(IsNetworkError() || ResponseCode() == 503) && Attempts() <= 2","PassHostHeader":true}}`,
 		hash: "71baccfabc77c0bdaf63df4d9c8aa2408bf6f3f6",
 	}} {
-		fmt.Printf("Test case #%d\n", i)
+		c.Logf("Test case #%d", i)
 
 		// When
 		spec := tc.fes.spec()
