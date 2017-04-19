@@ -1,10 +1,14 @@
 package vulcand
 
 import (
+	"crypto/sha1"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/pkg/errors"
 )
 
 const (
@@ -34,9 +38,12 @@ func (fo frontendOptions) spec() string {
 
 func newFrontendSpec(appname, host, path string, methods []string, middlewares []Middleware) *frontendSpec {
 	path = normalizePath(path)
+	for i, m := range methods {
+		methods[i] = strings.ToUpper(m)
+	}
 	return &frontendSpec{
 		ID:      makeLocationID(methods, path),
-		Host:    host,
+		Host:    strings.ToLower(host),
 		Methods: methods,
 		URLPath: path,
 		Path:    makeLocationPath(methods, path),
@@ -51,10 +58,20 @@ func newFrontendSpec(appname, host, path string, methods []string, middlewares [
 
 func (fes *frontendSpec) spec() string {
 	return fmt.Sprintf(`{"Type":"http","BackendId":"%s","Route":%s,"Settings":%s}`,
-		fes.AppName, strconv.Quote(fes.Route()), fes.Options.spec())
+		fes.AppName, strconv.Quote(fes.route()), fes.Options.spec())
 }
 
-func (fes *frontendSpec) Route() string {
+func (fes *frontendSpec) hash() (string, error) {
+	d := sha1.New()
+	fesJSON, err := json.Marshal(fes)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to JSON, %v", fes)
+	}
+	d.Write(fesJSON)
+	return fmt.Sprintf("%x", d.Sum(nil)), nil
+}
+
+func (fes *frontendSpec) route() string {
 	var methodExpr string
 	if len(fes.Methods) == 1 {
 		methodExpr = fmt.Sprintf(`Method("%s")`, fes.Methods[0])
