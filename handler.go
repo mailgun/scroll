@@ -2,6 +2,7 @@ package scroll
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -13,6 +14,10 @@ import (
 	"github.com/mailgun/log"
 	"github.com/mailgun/scroll/vulcand"
 )
+
+// When Handler or HandlerWithBody is used, this function will be called after every request with a log message.
+// If nil, defaults to github.com/mailgun/log.Infof.
+var LogRequest func(*http.Request, int, time.Duration, error)
 
 // Response objects that apps' handlers are advised to return.
 //
@@ -46,11 +51,6 @@ type Spec struct {
 	// Vulcan middlewares to register with the handler. When registering, middlewares are assigned priorities
 	// according to their positions in the list: a middleware that appears in the list earlier is executed first.
 	Middlewares []vulcand.Middleware
-
-	// When Handler or HandlerWithBody is used, this function will be called after every request with a log message.
-	// If nil, defaults to github.com/mailgun/log.Infof.
-	LogRequest func(r *http.Request, status int, elapsedTime time.Duration, err error)
-
 }
 
 // Given a map of parameters url decode each parameter
@@ -83,24 +83,25 @@ type HandlerFunc func(http.ResponseWriter, *http.Request, map[string]string) (in
 // the request stats, etc.
 func MakeHandler(app *App, fn HandlerFunc, spec Spec) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if err := parseForm(r); err != nil {
-			ReplyInternalError(w, fmt.Sprintf("Failed to parse request form: %v", err))
-			return
-		}
+		var response interface{}
+		var status int
+		var err error
 
 		start := time.Now()
-		response, err := fn(w, r, DecodeParams(mux.Vars(r)))
-		elapsedTime := time.Since(start)
-
-		var status int
-		if err != nil {
-			response, status = responseAndStatusFor(err)
+		if err = parseForm(r); err != nil {
+			err = fmt.Errorf("Failed to parse request form: %v", err)
+			response = Response{"message": err.Error()}
+			status = http.StatusInternalServerError
 		} else {
-			status = http.StatusOK
+			response, err = fn(w, r, DecodeParams(mux.Vars(r)))
+			if err != nil {
+				response, status = responseAndStatusFor(err)
+			} else {
+				status = http.StatusOK
+			}
 		}
-
-		spec.LogRequest(r, status, elapsedTime, err)
-
+		elapsedTime := time.Since(start)
+		LogRequest(r, status, elapsedTime, err)
 		app.stats.TrackRequest(spec.MetricName, status, elapsedTime)
 
 		Reply(w, response, status)
@@ -115,30 +116,37 @@ type HandlerWithBodyFunc func(http.ResponseWriter, *http.Request, map[string]str
 // Make a handler out of HandlerWithBodyFunc, just like regular MakeHandler function.
 func MakeHandlerWithBody(app *App, fn HandlerWithBodyFunc, spec Spec) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if err := parseForm(r); err != nil {
-			ReplyInternalError(w, fmt.Sprintf("Failed to parse request form: %v", err))
-			return
-		}
-
-		body, err := ioutil.ReadAll(r.Body)
-		if err != nil {
-			ReplyInternalError(w, fmt.Sprintf("Failed to read request body: %v", err))
-			return
-		}
+		var response interface{}
+		var body []byte
+		var status int
+		var err error
 
 		start := time.Now()
-		response, err := fn(w, r, mux.Vars(r), body)
-		elapsedTime := time.Since(start)
+		if err = parseForm(r); err != nil {
+			err = fmt.Errorf("Failed to parse request form: %v", err)
+			response = Response{"message": err.Error()}
+			status = http.StatusInternalServerError
+			goto end
+		}
 
-		var status int
+		body, err = ioutil.ReadAll(r.Body)
+		if err != nil {
+			err = fmt.Errorf("Failed to read request body: %v", err)
+			response = Response{"message": err.Error()}
+			status = http.StatusInternalServerError
+			goto end
+		}
+
+		response, err = fn(w, r, mux.Vars(r), body)
 		if err != nil {
 			response, status = responseAndStatusFor(err)
 		} else {
 			status = http.StatusOK
 		}
 
-		spec.LogRequest(r, status, elapsedTime, err)
-
+	end:
+		elapsedTime := time.Since(start)
+		LogRequest(r, status, elapsedTime, err)
 		app.stats.TrackRequest(spec.MetricName, status, elapsedTime)
 
 		Reply(w, response, status)
@@ -153,8 +161,9 @@ func Reply(w http.ResponseWriter, response interface{}, status int) {
 	// marshal the body of the response
 	marshalledResponse, err := json.Marshal(response)
 	if err != nil {
-		ReplyInternalError(w, fmt.Sprintf("Failed to marshal response: %v %v", response, err))
-		return
+		marshalledResponse = []byte(fmt.Sprintf(`{"message": "Failed to marshal response: %v %v"}`, response, err))
+		status = http.StatusInternalServerError
+		LogRequest(nil, status, time.Nanosecond, err)
 	}
 
 	// write JSON response
@@ -171,7 +180,7 @@ func ReplyError(w http.ResponseWriter, err error) {
 
 // ReplyInternalError logs the error message and replies with a 500 status code.
 func ReplyInternalError(w http.ResponseWriter, message string) {
-	log.Errorf("Internal server error: %v", message)
+	LogRequest(nil, 500, time.Nanosecond, errors.New(message))
 	Reply(w, Response{"message": message}, http.StatusInternalServerError)
 }
 
@@ -214,5 +223,3 @@ func isMultipart(r *http.Request) bool {
 	contentType := r.Header.Get("Content-Type")
 	return strings.HasPrefix(contentType, "multipart/form-data")
 }
-
-
