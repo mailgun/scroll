@@ -65,8 +65,8 @@ func main() {
 	app.AddHandler(handlerSpec)
 
 	// Run the application
-    if err = app.Run(); err != nil {
-        os.Exit(1)
-    }
+	if err = app.Run(); err != nil {
+		os.Exit(1)
+	}
 }
 ```
