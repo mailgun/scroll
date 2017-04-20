@@ -44,7 +44,10 @@ func main() {
 		os.Exit(1)
 	}
 	app.AddHandler(handlerSpec)
-	app.Run()
+	if err = app.Run(); err != nil {
+		app.Stop() // Immediately un-register from vulcand
+		os.Exit(1)
+	}
 }
 
 func index(w http.ResponseWriter, r *http.Request, params map[string]string) (interface{}, error) {

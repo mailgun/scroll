@@ -23,6 +23,7 @@ const (
 )
 
 type Config struct {
+	Etcd   *etcd.Config
 	Chroot string
 	TTL    time.Duration
 }
@@ -47,8 +48,12 @@ func NewRegistry(cfg Config, appName, ip string, port int) (*Registry, error) {
 		cfg.TTL = defaultRegistrationTTL
 	}
 
-	etcdCfg := etcd.Config{Endpoints: []string{localEtcdProxy}}
-	etcdClt, err := etcd.New(etcdCfg)
+	etcdCfg := cfg.Etcd
+	if etcdCfg == nil {
+		etcdCfg = &etcd.Config{Endpoints: []string{localEtcdProxy}}
+	}
+
+	etcdClt, err := etcd.New(*etcdCfg)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to create Etcd client, cfg=%v", etcdCfg)
 	}
