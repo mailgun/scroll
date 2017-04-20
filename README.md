@@ -29,9 +29,9 @@ package main
 import (
 	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/mailgun/scroll"
-	"github.com/mailgun/scroll/registry"
 )
 
 func handler(w http.ResponseWriter, r *http.Request, params map[string]string) (interface{}, error) {
@@ -46,9 +46,14 @@ func main() {
 		Name:       "scrollexample",
 		ListenIP:   "0.0.0.0",
 		ListenPort: 8080,
-		Registry:   &registry.NopRegistry{},
+		PublicAPIHost:    "public.local",
+		ProtectedAPIHost: "private.local",
 	}
-	app := scroll.NewAppWithConfig(appConfig)
+	app, err := scroll.NewAppWithConfig(appConfig)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 
 	// register a handler
 	handlerSpec := scroll.Spec{
@@ -60,6 +65,9 @@ func main() {
 	app.AddHandler(handlerSpec)
 
 	// start the app
-	app.Run()
+    if err = app.Run(); err != nil {
+        app.Stop() // Immediately un-register from vulcand
+        os.Exit(1)
+    }
 }
 ```
