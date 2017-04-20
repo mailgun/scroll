@@ -133,7 +133,7 @@ func (app *App) AddHandler(spec Spec) error {
 			route.Headers(spec.Headers...)
 		}
 		if app.vulcandReg != nil {
-			app.registerFrontend(spec.Methods, path, spec.Scopes, spec.Middlewares)
+			app.registerFrontend(spec.Methods, path, spec.Scope, spec.Middlewares)
 		}
 	}
 
@@ -198,14 +198,12 @@ func (app *App) Run() error {
 }
 
 // registerLocation is a helper for registering handlers in vulcan.
-func (app *App) registerFrontend(methods []string, path string, scopes []Scope, middlewares []vulcand.Middleware) error {
-	for _, scope := range scopes {
-		host, err := app.apiHostForScope(scope)
-		if err != nil {
-			return err
-		}
-		app.vulcandReg.AddFrontend(host, path, methods, middlewares)
+func (app *App) registerFrontend(methods []string, path string, scope Scope, middlewares []vulcand.Middleware) error {
+	host, err := app.apiHostForScope(scope)
+	if err != nil {
+		return err
 	}
+	app.vulcandReg.AddFrontend(host, path, methods, middlewares)
 	return nil
 }
 

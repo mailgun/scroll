@@ -46,11 +46,15 @@ type Spec struct {
 	MetricName string
 
 	// Controls the handler's accessibility via vulcan (public or protected). If not specified, public is assumed.
-	Scopes []Scope
+	Scope Scope
 
 	// Vulcan middlewares to register with the handler. When registering, middlewares are assigned priorities
 	// according to their positions in the list: a middleware that appears in the list earlier is executed first.
 	Middlewares []vulcand.Middleware
+
+	// When Handler or HandlerWithBody is used, this function will be called after every request with a log message.
+	// If nil, defaults to github.com/mailgun/log.Infof.
+	LogRequest func(r *http.Request, status int, elapsedTime time.Duration, err error)
 }
 
 // Given a map of parameters url decode each parameter

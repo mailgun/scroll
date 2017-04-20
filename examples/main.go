@@ -30,7 +30,7 @@ func main() {
 	}
 
 	handlerSpec := scroll.Spec{
-		Scopes:  []scroll.Scope{scroll.ScopePublic, scroll.ScopeProtected},
+		Scope:   scroll.ScopePublic,
 		Methods: []string{"GET"},
 		Paths:   []string{"/"},
 		Handler: index,
