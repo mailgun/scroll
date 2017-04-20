@@ -64,9 +64,8 @@ func main() {
 
 	app.AddHandler(handlerSpec)
 
-	// start the app
+	// Run the application
     if err = app.Run(); err != nil {
-        app.Stop() // Immediately un-register from vulcand
         os.Exit(1)
     }
 }
