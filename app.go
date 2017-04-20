@@ -1,15 +1,17 @@
 package scroll
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/mailgun/log"
-	"github.com/mailgun/manners"
 	"github.com/mailgun/metrics"
 	"github.com/mailgun/scroll/vulcand"
 )
@@ -23,6 +25,10 @@ const (
 
 	// Suggested max allowed amount of entries that batch APIs can accept (e.g. batch uploads).
 	MaxBatchSize = 1000
+
+	defaultHTTPReadTimeout  = 10 * time.Second
+	defaultHTTPWriteTimeout = 60 * time.Second
+	defaultHTTPIdleTimeout  = 60 * time.Second
 )
 
 // Represents an app.
@@ -55,6 +61,12 @@ type AppConfig struct {
 
 	// metrics service used for emitting the app's real-time metrics
 	Client metrics.Client
+
+	HTTP struct {
+		ReadTimeout  time.Duration
+		WriteTimeout time.Duration
+		IdleTimeout  time.Duration
+	}
 }
 
 // Create a new app.
@@ -64,6 +76,15 @@ func NewApp() (*App, error) {
 
 // Create a new app with the provided configuration.
 func NewAppWithConfig(config AppConfig) (*App, error) {
+	if config.HTTP.ReadTimeout == 0 {
+		config.HTTP.ReadTimeout = defaultHTTPReadTimeout
+	}
+	if config.HTTP.WriteTimeout == 0 {
+		config.HTTP.WriteTimeout = defaultHTTPWriteTimeout
+	}
+	if config.HTTP.IdleTimeout == 0 {
+		config.HTTP.IdleTimeout = defaultHTTPIdleTimeout
+	}
 	app := App{Config: config}
 
 	if LogRequest == nil {
@@ -113,7 +134,7 @@ func (app *App) AddHandler(spec Spec) error {
 			route.Headers(spec.Headers...)
 		}
 		if app.vulcandReg != nil {
-			app.registerFrontend(spec.Methods, path, spec.Scopes, spec.Middlewares)
+			app.registerFrontend(spec.Methods, path, spec.Scope, spec.Middlewares)
 		}
 	}
 
@@ -153,31 +174,58 @@ func (app *App) Run() error {
 		}()
 	}
 
+	addr := fmt.Sprintf("%v:%v", app.Config.ListenIP, app.Config.ListenPort)
+	httpSrv := &http.Server{
+		Addr:         addr,
+		ReadTimeout:  app.Config.HTTP.ReadTimeout,
+		WriteTimeout: app.Config.HTTP.WriteTimeout,
+		IdleTimeout:  app.Config.HTTP.IdleTimeout,
+		Handler:      app.router,
+	}
+
 	// listen for a shutdown signal
-	exitCh := make(chan os.Signal, 1)
-	signal.Notify(exitCh, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM)
+	haltCh := make(chan struct{})
+	signalCh := make(chan os.Signal, 1)
+	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM)
+	var wg sync.WaitGroup
+
+	// Start a stop signal waiting goroutine.
+	wg.Add(1)
 	go func() {
-		s := <-exitCh
-		log.Infof("Got signal %v, shutting down", s)
+		defer wg.Done()
+		select {
+		case s := <-signalCh:
+			log.Infof("Got signal %v, shutting down", s)
+		case <-haltCh:
+		}
 		if app.vulcandReg != nil {
 			app.vulcandReg.Stop()
 		}
-		manners.Close()
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		if err := httpSrv.Shutdown(ctx); err != nil {
+			log.Errorf("Failed to shutdown HTTP server: err=%v", err)
+		}
 	}()
+	err := httpSrv.ListenAndServe()
 
-	addr := fmt.Sprintf("%v:%v", app.Config.ListenIP, app.Config.ListenPort)
-	return manners.ListenAndServe(addr, app.router)
+	// In case the HTTP server failed to start we need to stop the signal
+	// waiting goroutine. But it would not hurt to close the channel, even if
+	// the HTTP server was terminated from the signal waiting goroutine.
+	close(haltCh)
+
+	// Wait for the HTTP server to stop gracefully.
+	wg.Wait()
+	return err
 }
 
 // registerLocation is a helper for registering handlers in vulcan.
-func (app *App) registerFrontend(methods []string, path string, scopes []Scope, middlewares []vulcand.Middleware) error {
-	for _, scope := range scopes {
-		host, err := app.apiHostForScope(scope)
-		if err != nil {
-			return err
-		}
-		app.vulcandReg.AddFrontend(host, path, methods, middlewares)
+func (app *App) registerFrontend(methods []string, path string, scope Scope, middlewares []vulcand.Middleware) error {
+	host, err := app.apiHostForScope(scope)
+	if err != nil {
+		return err
 	}
+	app.vulcandReg.AddFrontend(host, path, methods, middlewares)
 	return nil
 }
 

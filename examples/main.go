@@ -30,7 +30,7 @@ func main() {
 	}
 
 	handlerSpec := scroll.Spec{
-		Scopes:  []scroll.Scope{scroll.ScopePublic, scroll.ScopeProtected},
+		Scope:   scroll.ScopePublic,
 		Methods: []string{"GET"},
 		Paths:   []string{"/"},
 		Handler: index,
@@ -44,7 +44,9 @@ func main() {
 		os.Exit(1)
 	}
 	app.AddHandler(handlerSpec)
-	app.Run()
+	if err = app.Run(); err != nil {
+		os.Exit(1)
+	}
 }
 
 func index(w http.ResponseWriter, r *http.Request, params map[string]string) (interface{}, error) {

@@ -14,21 +14,21 @@ type backendSpec struct {
 	URL     string
 }
 
-func newBackendSpec(appname, ip string, port int) (*backendSpec, error) {
+func newBackendSpec(appName, ip string, port int) (*backendSpec, error) {
 	id, err := makeEndpointID(port)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make endpoint ID: %v", err)
 	}
-	return newBackendSpecWithID(id, appname, ip, port)
+	return newBackendSpecWithID(id, appName, ip, port)
 }
 
-func newBackendSpecWithID(id string, appname string, ip string, port int) (*backendSpec, error) {
+func newBackendSpecWithID(id string, appName string, ip string, port int) (*backendSpec, error) {
 	url, err := makeEndpointURL(ip, port)
 	if err != nil {
 		return nil, fmt.Errorf("failed to make endpoint URL: %v", err)
 	}
 	return &backendSpec{
-		AppName: appname,
+		AppName: appName,
 		ID:      id,
 		URL:     url,
 	}, nil

@@ -1,6 +1,6 @@
 language: go
 go:
-  - 1.7.3
+  - 1.8.1
 install:
   - docker-compose up -d
   - go get -u github.com/Masterminds/glide
