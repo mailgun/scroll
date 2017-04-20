@@ -184,21 +184,35 @@ func (app *App) Run() error {
 	}
 
 	// listen for a shutdown signal
-	exitCh := make(chan os.Signal, 1)
-	signal.Notify(exitCh, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM)
+	haltCh := make(chan struct{})
+	signalCh := make(chan os.Signal, 1)
+	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM)
 	var wg sync.WaitGroup
+
+	// Start a stop signal waiting goroutine.
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if s, ok := <-exitCh; ok {
+		select {
+		case s := <-signalCh:
 			log.Infof("Got signal %v, shutting down", s)
+		case <-haltCh:
 		}
 		if app.vulcandReg != nil {
 			app.vulcandReg.Stop()
 		}
-		httpSrv.Shutdown(context.Background())
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		if err := httpSrv.Shutdown(ctx); err != nil {
+			log.Errorf("Failed to shutdown HTTP server: err=%v", err)
+		}
 	}()
 	err := httpSrv.ListenAndServe()
+
+	// In case the HTTP server failed to start we need to stop the signal
+	// waiting goroutine. But it would not hurt to close the channel, even if
+	// the HTTP server was terminated from the signal waiting goroutine.
+	close(haltCh)
 
 	// Wait for the HTTP server to stop gracefully.
 	wg.Wait()
