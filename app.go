@@ -1,15 +1,16 @@
 package scroll
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/mailgun/log"
-	"github.com/mailgun/manners"
 	"github.com/mailgun/metrics"
 	"github.com/mailgun/scroll/vulcand"
 )
@@ -23,6 +24,10 @@ const (
 
 	// Suggested max allowed amount of entries that batch APIs can accept (e.g. batch uploads).
 	MaxBatchSize = 1000
+
+	defaultHTTPReadTimeout  = 10 * time.Second
+	defaultHTTPWriteTimeout = 60 * time.Second
+	defaultHTTPIdleTimeout  = 60 * time.Second
 )
 
 // Represents an app.
@@ -55,6 +60,12 @@ type AppConfig struct {
 
 	// metrics service used for emitting the app's real-time metrics
 	Client metrics.Client
+
+	HTTP struct {
+		ReadTimeout  time.Duration
+		WriteTimeout time.Duration
+		IdleTimeout  time.Duration
+	}
 }
 
 // Create a new app.
@@ -64,6 +75,15 @@ func NewApp() (*App, error) {
 
 // Create a new app with the provided configuration.
 func NewAppWithConfig(config AppConfig) (*App, error) {
+	if config.HTTP.ReadTimeout == 0 {
+		config.HTTP.ReadTimeout = defaultHTTPReadTimeout
+	}
+	if config.HTTP.WriteTimeout == 0 {
+		config.HTTP.WriteTimeout = defaultHTTPWriteTimeout
+	}
+	if config.HTTP.IdleTimeout == 0 {
+		config.HTTP.IdleTimeout = defaultHTTPIdleTimeout
+	}
 	app := App{Config: config}
 
 	if LogRequest == nil {
@@ -153,20 +173,28 @@ func (app *App) Run() error {
 		}()
 	}
 
+	addr := fmt.Sprintf("%v:%v", app.Config.ListenIP, app.Config.ListenPort)
+	httpSrv := &http.Server{
+		Addr:         addr,
+		ReadTimeout:  app.Config.HTTP.ReadTimeout,
+		WriteTimeout: app.Config.HTTP.WriteTimeout,
+		IdleTimeout:  app.Config.HTTP.IdleTimeout,
+		Handler:      app.router,
+	}
+
 	// listen for a shutdown signal
 	exitCh := make(chan os.Signal, 1)
 	signal.Notify(exitCh, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM)
+
 	go func() {
 		s := <-exitCh
 		log.Infof("Got signal %v, shutting down", s)
 		if app.vulcandReg != nil {
 			app.vulcandReg.Stop()
 		}
-		manners.Close()
+		httpSrv.Shutdown(context.Background())
 	}()
-
-	addr := fmt.Sprintf("%v:%v", app.Config.ListenIP, app.Config.ListenPort)
-	return manners.ListenAndServe(addr, app.router)
+	return httpSrv.ListenAndServe()
 }
 
 // registerLocation is a helper for registering handlers in vulcan.

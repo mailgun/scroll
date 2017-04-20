@@ -10,8 +10,6 @@ import:
   version: master
 - package: github.com/mailgun/log
   version: master
-- package: github.com/mailgun/manners
-  version: master
 - package: github.com/mailgun/metrics
   version: master
 - package: github.com/coreos/go-semver
