@@ -6,6 +6,9 @@ import (
 	"strconv"
 	"time"
 
+	"fmt"
+	"strings"
+
 	"github.com/mailgun/log"
 )
 
@@ -16,6 +19,25 @@ func GetStringField(r *http.Request, fieldName string) (string, error) {
 		return "", MissingFieldError{fieldName}
 	}
 	return r.FormValue(fieldName), nil
+}
+
+// Retrieve a POST request field as a string.
+// Returns `MissingFieldError` if requested field is missing
+// and `UnsafeFieldError` if the value does not match any of the strings
+// in the allowed slice
+func GetStringFieldAllowed(r *http.Request, fieldName string, allowed []string) (string, error) {
+	if _, ok := r.Form[fieldName]; !ok {
+		return "", MissingFieldError{fieldName}
+	}
+	fieldValue := r.FormValue(fieldName)
+	for _, allow := range allowed {
+		if fieldValue == allow {
+			return fieldValue, nil
+		}
+	}
+	msg := fmt.Sprintf("'%s' is not a valid for '%s'; valid values are (%s)",
+		fieldValue, fieldName, strings.Join(allowed, ","))
+	return "", UnsafeFieldError{Field: fieldName, Description: msg}
 }
 
 // Retrieves requested field as a string, allowSet provides input sanitization. If an

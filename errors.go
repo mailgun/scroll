@@ -61,7 +61,7 @@ type UnsafeFieldError struct {
 }
 
 func (e UnsafeFieldError) Error() string {
-	return fmt.Sprintf("field %q is unsafe: %v", e.Field, e.Description)
+	return fmt.Sprintf("field '%s' is unsafe: %v", e.Field, e.Description)
 }
 
 type RateLimitError struct {
@@ -85,4 +85,11 @@ func responseAndStatusFor(err error) (Response, int) {
 	default:
 		return Response{"message": "Internal Server Error"}, http.StatusInternalServerError
 	}
+}
+
+func IsMissingFieldErr(err error) bool {
+	if _, ok := err.(MissingFieldError); ok {
+		return true
+	}
+	return false
 }
