@@ -37,6 +37,7 @@ type App struct {
 	router     *mux.Router
 	stats      *appStats
 	vulcandReg *vulcand.Registry
+	done       chan struct{}
 }
 
 // Represents a configuration object an app is created with.
@@ -184,7 +185,7 @@ func (app *App) Run() error {
 	}
 
 	// listen for a shutdown signal
-	haltCh := make(chan struct{})
+	app.done = make(chan struct{})
 	signalCh := make(chan os.Signal, 1)
 	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGQUIT, syscall.SIGTERM)
 	var wg sync.WaitGroup
@@ -196,7 +197,7 @@ func (app *App) Run() error {
 		select {
 		case s := <-signalCh:
 			log.Infof("Got signal %v, shutting down", s)
-		case <-haltCh:
+		case <-app.done:
 		}
 		if app.vulcandReg != nil {
 			app.vulcandReg.Stop()
@@ -212,11 +213,18 @@ func (app *App) Run() error {
 	// In case the HTTP server failed to start we need to stop the signal
 	// waiting goroutine. But it would not hurt to close the channel, even if
 	// the HTTP server was terminated from the signal waiting goroutine.
-	close(haltCh)
+	app.Stop()
 
 	// Wait for the HTTP server to stop gracefully.
 	wg.Wait()
 	return err
+}
+
+func (app *App) Stop() {
+	if app.done != nil {
+		close(app.done)
+		app.done = nil
+	}
 }
 
 // registerLocation is a helper for registering handlers in vulcan.
