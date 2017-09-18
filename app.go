@@ -221,9 +221,10 @@ func (app *App) Run() error {
 }
 
 func (app *App) Stop() {
-	if app.done != nil {
+	select {
+	case <-app.done:
+	default:
 		close(app.done)
-		app.done = nil
 	}
 }
 
