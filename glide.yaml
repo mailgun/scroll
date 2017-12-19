@@ -4,6 +4,8 @@ import:
   version: ~3.0.15
   subpackages:
   - client
+- package: github.com/ugorji/go
+  version: faddd6128c66c4708f45fdc007f575f75e592a3c
 - package: github.com/gorilla/mux
   version: master
 - package: github.com/mailgun/iptools
