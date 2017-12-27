@@ -1,6 +1,7 @@
 package scroll
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -157,13 +158,30 @@ func MakeHandlerWithBody(app *App, fn HandlerWithBodyFunc, spec Spec) http.Handl
 	}
 }
 
+// jsonMarshall marshal without escaping "<", ">" and "&"
+//
+// By default golang standard library escapes "<", ">" and "&"
+// to keep some browsers from misinterpreting JSON output as HTML.
+// If API returns a link with "&" it breaks the link.
+// This can't be fixed by a custom marshaler.
+//
+// For more details see:
+// https://stackoverflow.com/questions/28595664/how-to-stop-json-marshal-from-escaping-and
+func jsonMarshal(t interface{}) ([]byte, error) {
+	buffer := &bytes.Buffer{}
+	encoder := json.NewEncoder(buffer)
+	encoder.SetEscapeHTML(false)
+	err := encoder.Encode(t)
+	return buffer.Bytes(), err
+}
+
 // Reply with the provided HTTP response and status code.
 //
 // Response body must be JSON-marshallable, otherwise the response
 // will be "Internal Server Error".
 func Reply(w http.ResponseWriter, response interface{}, status int) {
 	// marshal the body of the response
-	marshalledResponse, err := json.Marshal(response)
+	marshalledResponse, err := jsonMarshal(response)
 	if err != nil {
 		marshalledResponse = []byte(fmt.Sprintf(`{"message": "Failed to marshal response: %v %v"}`, response, err))
 		status = http.StatusInternalServerError
