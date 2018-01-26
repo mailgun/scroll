@@ -107,8 +107,12 @@ func GetTimestampField(r *http.Request, fieldName string) (time.Time, error) {
 	}
 	parsedTime, err := time.Parse(time.RFC1123, r.FormValue(fieldName))
 	if err != nil {
-		log.Infof("Failed to convert timestamp %v: %v", r.FormValue(fieldName), err)
-		return time.Now(), InvalidFormatError{fieldName, r.FormValue(fieldName)}
+		// Attempt to parse with offset timezone before giving up
+		parsedTime, err = time.Parse(time.RFC1123Z, r.FormValue(fieldName))
+		if err != nil {
+			log.Infof("Failed to convert timestamp %v: %v", r.FormValue(fieldName), err)
+			return time.Now(), InvalidFormatError{fieldName, r.FormValue(fieldName)}
+		}
 	}
 	return parsedTime, nil
 }
