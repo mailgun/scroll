@@ -13,13 +13,10 @@ import (
 )
 
 const (
-	localEtcdProxy = "127.0.0.1:2379"
-	frontendFmt    = "%s/frontends/%s.%s/frontend"
-	middlewareFmt  = "%s/frontends/%s.%s/middlewares/%s"
-	backendFmt     = "%s/backends/%s/backend"
-	serverFmt      = "%s/backends/%s/servers/%s"
-
-	defaultRegistrationTTL = 30 * time.Second
+	frontendFmt   = "%s/frontends/%s.%s/frontend"
+	middlewareFmt = "%s/frontends/%s.%s/middlewares/%s"
+	backendFmt    = "%s/backends/%s/backend"
+	serverFmt     = "%s/backends/%s/servers/%s"
 )
 
 type Config struct {
@@ -45,12 +42,8 @@ func NewRegistry(cfg Config, appName, ip string, port int) (*Registry, error) {
 		return nil, errors.Wrap(err, "failed to create backend")
 	}
 
-	if cfg.TTL <= 0 {
-		cfg.TTL = defaultRegistrationTTL
-	}
-
-	if cfg.Etcd == nil {
-		cfg.Etcd = &etcd.Config{Endpoints: []string{localEtcdProxy}}
+	if err := applyDefaults(&cfg); err != nil {
+		return nil, errors.Wrap(err, "config failure")
 	}
 
 	client, err := etcd.New(*cfg.Etcd)
@@ -99,11 +92,13 @@ func (r *Registry) Start() error {
 	}
 
 	go func() {
+		r.wg.Add(1)
 		for {
 			select {
 			case <-r.ctx.Done():
 				_, err := r.client.Revoke(context.Background(), r.leaseID)
 				log.Infof("lease revoked err=(%v)", err)
+				r.wg.Done()
 				return
 			}
 		}
@@ -139,7 +134,7 @@ func (r *Registry) registerBackend(bes *backendSpec) error {
 func (r *Registry) registerFrontend(fes *frontendSpec) error {
 	fesKey := fmt.Sprintf(frontendFmt, r.cfg.Chroot, fes.Host, fes.ID)
 	fesVal := fes.spec()
-	_, err := r.client.Put(r.ctx, fesKey, fesVal, nil)
+	_, err := r.client.Put(r.ctx, fesKey, fesVal)
 	if err != nil {
 		return errors.Wrapf(err, "failed to set frontend spec, %s", fesKey)
 	}

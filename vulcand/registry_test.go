@@ -20,13 +20,18 @@ type RegistrySuite struct {
 	ctx        context.Context
 	cancelFunc context.CancelFunc
 	r          *Registry
+	etcdCfg    *etcd.Config
 }
 
 var _ = Suite(&RegistrySuite{})
 
 func (s *RegistrySuite) SetUpSuite(c *C) {
-	var err error
-	s.client, err = etcd.New(etcd.Config{Endpoints: []string{localEtcdProxy}})
+	var cfg Config
+
+	err := applyDefaults(&cfg)
+	c.Assert(err, IsNil)
+
+	s.client, err = etcd.New(*cfg.Etcd)
 	c.Assert(err, IsNil)
 }
 
@@ -34,7 +39,14 @@ func (s *RegistrySuite) SetUpTest(c *C) {
 	s.ctx, s.cancelFunc = context.WithTimeout(context.Background(), time.Second*5)
 	_, err := s.client.Delete(s.ctx, testChroot, etcd.WithPrefix())
 	c.Assert(err, IsNil)
-	s.r, err = NewRegistry(Config{Chroot: testChroot}, "app1", "192.168.19.2", 8000)
+	s.r, err = NewRegistry(
+		Config{
+			Chroot: testChroot,
+			Etcd:   s.etcdCfg,
+		},
+		"app1",
+		"192.168.19.2",
+		8000)
 	c.Assert(err, IsNil)
 }
 
@@ -53,15 +65,15 @@ func (s *RegistrySuite) TestRegisterBackend(c *C) {
 	// Then
 	c.Assert(err, IsNil)
 
-	res, err := s.client.Get(s.ctx, testChroot+"/backends/bar/backend", nil)
+	res, err := s.client.Get(s.ctx, testChroot+"/backends/bar/backend")
 	c.Assert(err, IsNil)
-	c.Assert(res.Kvs[0].Value, Equals, `{"Type":"http"}`)
-	c.Assert(res.Kvs[0].Lease, Equals, s.r.leaseID)
+	c.Assert(string(res.Kvs[0].Value), Equals, `{"Type":"http"}`)
+	c.Assert(res.Kvs[0].Lease, Equals, int64(0))
 
-	res, err = s.client.Get(s.ctx, testChroot+"/backends/bar/servers/foo", nil)
+	res, err = s.client.Get(s.ctx, testChroot+"/backends/bar/servers/foo")
 	c.Assert(err, IsNil)
-	c.Assert(res.Kvs[0].Value, Equals, `{"URL":"http://example.com:8000"}`)
-	c.Assert(res.Kvs[0], Equals, s.r.leaseID)
+	c.Assert(string(res.Kvs[0].Value), Equals, `{"URL":"http://example.com:8000"}`)
+	c.Assert(res.Kvs[0].Lease, Equals, int64(s.r.leaseID))
 }
 
 func (s *RegistrySuite) TestRegisterFrontend(c *C) {
@@ -74,15 +86,15 @@ func (s *RegistrySuite) TestRegisterFrontend(c *C) {
 	// Then
 	c.Assert(err, IsNil)
 
-	res, err := s.client.Get(s.ctx, testChroot+"/frontends/host.get.path.to.server/frontend", nil)
+	res, err := s.client.Get(s.ctx, testChroot+"/frontends/host.get.path.to.server/frontend")
 	c.Assert(err, IsNil)
-	c.Assert(res.Kvs[0].Value, Equals, `{"Type":"http","BackendId":"foo","Route":"Host(\"host\") && Method(\"GET\") && Path(\"/path/to/server\")","Settings":{"FailoverPredicate":"(IsNetworkError() || ResponseCode() == 503) && Attempts() <= 2","PassHostHeader":true}}`)
-	c.Assert(res.Kvs[0], Equals, s.r.leaseID)
+	c.Assert(string(res.Kvs[0].Value), Equals, `{"Type":"http","BackendId":"foo","Route":"Host(\"host\") && Method(\"GET\") && Path(\"/path/to/server\")","Settings":{"FailoverPredicate":"(IsNetworkError() || ResponseCode() == 503) && Attempts() <= 2","PassHostHeader":true}}`)
+	c.Assert(res.Kvs[0].Lease, Equals, int64(0))
 
-	res, err = s.client.Get(s.ctx, testChroot+"/frontends/host.get.path.to.server/middlewares/bazz", nil)
+	res, err = s.client.Get(s.ctx, testChroot+"/frontends/host.get.path.to.server/middlewares/bazz")
 	c.Assert(err, IsNil)
-	c.Assert(res.Kvs[0].Value, Equals, `{"Type":"bar","Id":"bazz","Priority":0,"Middleware":"blah"}`)
-	c.Assert(res.Kvs[0], Equals, s.r.leaseID)
+	c.Assert(string(res.Kvs[0].Value), Equals, `{"Type":"bar","Id":"bazz","Priority":0,"Middleware":"blah"}`)
+	c.Assert(res.Kvs[0].Lease, Equals, int64(0))
 }
 
 func (s *RegistrySuite) TestHeartbeat(c *C) {
@@ -92,8 +104,8 @@ func (s *RegistrySuite) TestHeartbeat(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(1, Equals, len(res.Kvs))
 	serverNode := res.Kvs[0]
-	c.Assert(serverNode.Value, Equals, `{"URL":"http://192.168.19.2:8000"}`)
-	c.Assert(serverNode.Lease, Equals, s.r.leaseID)
+	c.Assert(string(serverNode.Value), Equals, `{"URL":"http://192.168.19.2:8000"}`)
+	c.Assert(serverNode.Lease, Equals, int64(s.r.leaseID))
 
 	// When
 	time.Sleep(3 * time.Second)
@@ -103,8 +115,8 @@ func (s *RegistrySuite) TestHeartbeat(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(1, Equals, len(res.Kvs))
 	serverNode = res.Kvs[0]
-	c.Assert(serverNode.Value, Equals, `{"URL":"http://192.168.19.2:8000"}`)
-	c.Assert(serverNode.Lease, Equals, s.r.leaseID)
+	c.Assert(string(serverNode.Value), Equals, `{"URL":"http://192.168.19.2:8000"}`)
+	c.Assert(serverNode.Lease, Equals, int64(s.r.leaseID))
 }
 
 // When registry is stopped the backend server record is immediately removed,
@@ -116,8 +128,8 @@ func (s *RegistrySuite) TestHeartbeatStop(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(1, Equals, len(res.Kvs))
 	serverNode := res.Kvs[0]
-	c.Assert(serverNode.Value, Equals, `{"URL":"http://192.168.19.2:8000"}`)
-	c.Assert(serverNode.Lease, Equals, s.r.leaseID)
+	c.Assert(string(serverNode.Value), Equals, `{"URL":"http://192.168.19.2:8000"}`)
+	c.Assert(serverNode.Lease, Equals, int64(s.r.leaseID))
 
 	// When
 	s.r.Stop()
@@ -125,10 +137,10 @@ func (s *RegistrySuite) TestHeartbeatStop(c *C) {
 	// Then
 	res, err = s.client.Get(s.ctx, testChroot+"/backends/app1/backend")
 	c.Assert(err, IsNil)
-	c.Assert(res.Kvs[0].Value, Equals, `{"Type":"http"}`)
-	c.Assert(res.Kvs[0].Lease, Equals, s.r.leaseID)
+	c.Assert(string(res.Kvs[0].Value), Equals, `{"Type":"http"}`)
+	c.Assert(res.Kvs[0].Lease, Equals, int64(0))
 
 	res, err = s.client.Get(s.ctx, testChroot+"/backends/app1/servers", etcd.WithPrefix())
 	c.Assert(err, IsNil)
-	c.Assert(0, Equals, len(res.Kvs))
+	c.Assert(len(res.Kvs), Equals, 0)
 }
