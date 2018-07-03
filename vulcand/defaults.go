@@ -20,7 +20,8 @@ const (
 
 func applyDefaults(cfg *Config) error {
 	var endpoint, user, pass, namespace, debug string
-	if cfg.TTL <= 0 {
+
+	if cfg.TTL.Seconds() <= 0 {
 		cfg.TTL = defaultRegistrationTTL
 	}
 
@@ -39,10 +40,12 @@ func applyDefaults(cfg *Config) error {
 	}
 
 	// If no endpoint provided, use default insecure
-	if endpoint == "" && cfg.Etcd.Endpoints == nil {
+	if endpoint == "" && len(cfg.Etcd.Endpoints) == 0 {
 		cfg.Etcd.Endpoints = []string{localInsecureEndpoint}
 	} else {
-		cfg.Etcd.Endpoints = []string{endpoint}
+		if len(cfg.Etcd.Endpoints) == 0 {
+			cfg.Etcd.Endpoints = []string{endpoint}
+		}
 	}
 
 	if namespace != "" && cfg.Chroot == "" {
@@ -66,15 +69,23 @@ func applyDefaults(cfg *Config) error {
 	}
 
 	// If 'user' and 'pass' supplied assume TLS config
-	cfg.Etcd.Username = user
-	cfg.Etcd.Password = pass
+	if user != "" {
+		cfg.Etcd.Username = user
+	}
+
+	if pass != "" {
+		cfg.Etcd.Password = pass
+	}
+
 	if cfg.Etcd.TLS == nil {
 		cfg.Etcd.TLS = &tls.Config{
 			InsecureSkipVerify: true,
 		}
+	} else {
+		cfg.Etcd.TLS.InsecureSkipVerify = true
 	}
 
-	if cfg.Etcd.Endpoints != nil {
+	if len(cfg.Etcd.Endpoints) != 0 {
 		// If we provided the default endpoint, make it a secure endpoint
 		if cfg.Etcd.Endpoints[0] == localInsecureEndpoint {
 			cfg.Etcd.Endpoints[0] = localSecureEndpoint

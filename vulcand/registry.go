@@ -13,10 +13,11 @@ import (
 )
 
 const (
-	frontendFmt   = "%s/frontends/%s.%s/frontend"
-	middlewareFmt = "%s/frontends/%s.%s/middlewares/%s"
-	backendFmt    = "%s/backends/%s/backend"
-	serverFmt     = "%s/backends/%s/servers/%s"
+	reconnectInterval = time.Second
+	frontendFmt       = "%s/frontends/%s.%s/frontend"
+	middlewareFmt     = "%s/frontends/%s.%s/middlewares/%s"
+	backendFmt        = "%s/backends/%s/backend"
+	serverFmt         = "%s/backends/%s/servers/%s"
 )
 
 type Config struct {
@@ -34,6 +35,9 @@ type Registry struct {
 	cancelFunc    context.CancelFunc
 	wg            sync.WaitGroup
 	leaseID       etcd.LeaseID
+	keepAliveChan <-chan *etcd.LeaseKeepAliveResponse
+	once          *sync.Once
+	done          chan struct{}
 }
 
 func NewRegistry(cfg Config, appName, ip string, port int) (*Registry, error) {
@@ -46,31 +50,9 @@ func NewRegistry(cfg Config, appName, ip string, port int) (*Registry, error) {
 		return nil, errors.Wrap(err, "config failure")
 	}
 
-	client, err := etcd.New(*cfg.Etcd)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create Etcd client, cfg=%v", *cfg.Etcd)
-	}
-	ctx, cancelFunc := context.WithCancel(context.Background())
-
-	// Grant a new lease for this client instance
-	resp, err := client.Grant(ctx, int64(cfg.TTL.Seconds()))
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to grant a new lease, cfg=%v", *cfg.Etcd)
-	}
-
-	// Keep the lease alive for as long as we live
-	_, err = client.KeepAlive(ctx, resp.ID)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to start keep alive, cfg=%v", *cfg.Etcd)
-	}
-
 	c := Registry{
 		cfg:         cfg,
 		backendSpec: backendSpec,
-		client:      client,
-		leaseID:     resp.ID,
-		ctx:         ctx,
-		cancelFunc:  cancelFunc,
 	}
 	return &c, nil
 }
@@ -79,23 +61,55 @@ func (r *Registry) AddFrontend(host, path string, methods []string, middlewares 
 	r.frontendSpecs = append(r.frontendSpecs, newFrontendSpec(r.backendSpec.AppName, host, path, methods, middlewares))
 }
 
+func (r *Registry) createNewLease() error {
+	return nil
+}
+
 func (r *Registry) Start() error {
-	if err := r.registerBackend(r.backendSpec); err != nil {
-		return errors.Wrapf(err, "failed to register backend, %s", r.backendSpec.ID)
+	heartBeatTicker := time.Tick(r.cfg.TTL)
+	r.done = make(chan struct{})
+	r.once = &sync.Once{}
+
+	// Report any errors the first time we connect
+	if err := r.connectAndRegister(); err != nil {
+		return err
 	}
 
-	// Write our backend spec config
-	key := fmt.Sprintf(serverFmt, r.cfg.Chroot, r.backendSpec.AppName, r.backendSpec.ID)
-	_, err := r.client.Put(r.ctx, key, r.backendSpec.serverSpec(), etcd.WithLease(r.leaseID))
-	if err != nil {
-		return errors.Wrap(err, "failed to write backend spec")
-	}
+	const (
+		connected = iota + 1
+		reconnecting
+		alive
+	)
 
 	go func() {
+		var status int
 		r.wg.Add(1)
 		for {
 			select {
-			case <-r.ctx.Done():
+			case <-heartBeatTicker:
+				// If we have NOT received a keep alive response during the ticker interval
+				// assume we should reconnect and register
+				if status != alive {
+					for {
+						if err := r.connectAndRegister(); err != nil {
+							log.Errorf("while reconnecting to etcd: %s", err)
+							status = reconnecting
+							wait := time.After(reconnectInterval)
+							select {
+							case <-r.done:
+								return
+							case <-wait:
+								continue
+							}
+						}
+						break
+					}
+				}
+				// This just indicates we reconnected, but haven't received a keep alive response
+				status = connected
+			case <-r.keepAliveChan:
+				status = alive
+			case <-r.done:
 				_, err := r.client.Revoke(context.Background(), r.leaseID)
 				log.Infof("lease revoked err=(%v)", err)
 				r.wg.Done()
@@ -103,6 +117,47 @@ func (r *Registry) Start() error {
 			}
 		}
 	}()
+
+	return nil
+}
+
+func (r *Registry) connectAndRegister() error {
+	var err error
+
+	// If we are reconnecting, cancel the previous connections
+	if r.cancelFunc != nil {
+		r.cancelFunc()
+	}
+
+	r.client, err = etcd.New(*r.cfg.Etcd)
+	if err != nil {
+		return errors.Wrapf(err, "failed to create Etcd client, cfg=%v", *r.cfg.Etcd)
+	}
+	r.ctx, r.cancelFunc = context.WithCancel(context.Background())
+
+	// Grant a new lease for this client instance
+	resp, err := r.client.Grant(r.ctx, int64(r.cfg.TTL.Seconds()))
+	if err != nil {
+		return errors.Wrapf(err, "failed to grant a new lease, cfg=%v", *r.cfg.Etcd)
+	}
+
+	// Keep the lease alive for as long as we live
+	r.keepAliveChan, err = r.client.KeepAlive(r.ctx, resp.ID)
+	if err != nil {
+		return errors.Wrapf(err, "failed to start keep alive, cfg=%v", *r.cfg.Etcd)
+	}
+	r.leaseID = resp.ID
+
+	if err := r.registerBackend(r.backendSpec); err != nil {
+		return errors.Wrapf(err, "failed to register backend, %s", r.backendSpec.ID)
+	}
+
+	// Write our backend spec config
+	key := fmt.Sprintf(serverFmt, r.cfg.Chroot, r.backendSpec.AppName, r.backendSpec.ID)
+	_, err = r.client.Put(r.ctx, key, r.backendSpec.serverSpec(), etcd.WithLease(r.leaseID))
+	if err != nil {
+		return errors.Wrap(err, "failed to write backend spec")
+	}
 
 	for _, fes := range r.frontendSpecs {
 		if err := r.registerFrontend(fes); err != nil {
@@ -115,6 +170,9 @@ func (r *Registry) Start() error {
 
 func (r *Registry) Stop() {
 	r.cancelFunc()
+	if r.once != nil {
+		r.once.Do(func() { close(r.done) })
+	}
 	r.wg.Wait()
 }
 

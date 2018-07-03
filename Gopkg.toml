@@ -56,3 +56,7 @@
 [prune]
   go-tests = true
   unused-packages = true
+
+[[constraint]]
+  name = "github.com/Shopify/toxiproxy"
+  version = "2.1.3"
