@@ -4,6 +4,9 @@ import (
 	"os"
 
 	. "gopkg.in/check.v1"
+	etcd "github.com/coreos/etcd/clientv3"
+	"time"
+	"crypto/tls"
 )
 
 type DefaultSuite struct{}
@@ -49,6 +52,38 @@ func (s *DefaultSuite) TestApplyDefaultWithCreds(c *C) {
 
 	c.Assert(cfg.Etcd.Username, Equals, "user")
 	c.Assert(cfg.Etcd.Password, Equals, "pass")
+}
+
+func (s *DefaultSuite) TestApplyDefaultPreferSetValue(c *C) {
+	stashEnv("ETCD3_USER", "user")
+	stashEnv("ETCD3_PASSWORD", "pass")
+	stashEnv("ETCD3_ENDPOINT", "http://example.com")
+	stashEnv("ETCD3_VULCAND_NAMESPACE", "/bar")
+
+	cfg := Config{
+		Chroot: "/foo",
+		TTL: time.Second * 10,
+		Etcd: &etcd.Config{
+			Endpoints: []string{"https://foo.bar"},
+			TLS: &tls.Config{
+				InsecureSkipVerify: false,
+			},
+			Username: "kit",
+			Password: "kat",
+		},
+	}
+
+	err := applyDefaults(&cfg)
+	c.Assert(err, IsNil)
+	c.Assert(cfg.Chroot, Equals, "/foo")
+	c.Assert(cfg.TTL, Equals, time.Second * 10)
+	c.Assert(cfg.Etcd.Endpoints[0], Equals, "https://foo.bar")
+
+	c.Assert(cfg.Etcd.TLS, NotNil)
+	c.Assert(cfg.Etcd.TLS.InsecureSkipVerify, Equals, false)
+
+	c.Assert(cfg.Etcd.Username, Equals, "kit")
+	c.Assert(cfg.Etcd.Password, Equals, "kat")
 }
 
 func (s *DefaultSuite) TestApplyDefaultNamespace(c *C) {

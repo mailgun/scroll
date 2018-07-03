@@ -53,6 +53,10 @@
   branch = "v1"
   name = "gopkg.in/check.v1"
 
+[[constraint]]
+  version = "v1.7.1"
+  name = "github.com/mailgun/holster"
+
 [prune]
   go-tests = true
   unused-packages = true

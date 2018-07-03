@@ -3,12 +3,7 @@
 
 [[projects]]
   name = "github.com/Shopify/toxiproxy"
-  packages = [
-    ".",
-    "client",
-    "stream",
-    "toxics"
-  ]
+  packages = ["client"]
   revision = "0b4f0a7eb0cfe79bc83ccbaca6d78172c9bcfc9b"
   version = "v2.1.3"
 
@@ -90,8 +85,8 @@
 [[projects]]
   name = "github.com/mailgun/holster"
   packages = ["."]
-  revision = "248bf74dccca9a69625d1cbbc4fc5c88193d8a10"
-  version = "v1.7.0"
+  revision = "a1d7aa39816cd5aca8a270631b8b2ce9b1c64cdd"
+  version = "v1.7.1"
 
 [[projects]]
   branch = "master"
@@ -224,15 +219,9 @@
   packages = ["."]
   revision = "788fd78401277ebd861206a03c884797c6ec5541"
 
-[[projects]]
-  branch = "v1"
-  name = "gopkg.in/tomb.v1"
-  packages = ["."]
-  revision = "dd632973f1e7218eb1089048e0798ec9ae7dceb8"
-
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "b8ff97c2398a208a559bd21a781537fa142ea87da43264946dd6c099b26fe3f5"
+  inputs-digest = "b6a7411b6f6f4cf740f2ed1bf71d2af4b9ebf15f11bb91c085064b3900d054bc"
   solver-name = "gps-cdcl"
   solver-version = 1
