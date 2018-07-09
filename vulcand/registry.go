@@ -21,9 +21,9 @@ const (
 )
 
 type Config struct {
-	Etcd   *etcd.Config
-	Chroot string
-	TTL    time.Duration
+	Namespace string
+	Etcd      *etcd.Config
+	TTL       time.Duration
 }
 
 type Registry struct {
@@ -44,10 +44,6 @@ func NewRegistry(cfg Config, appName, ip string, port int) (*Registry, error) {
 	backendSpec, err := newBackendSpec(appName, ip, port)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create backend")
-	}
-
-	if err := applyDefaults(&cfg); err != nil {
-		return nil, errors.Wrap(err, "config failure")
 	}
 
 	c := Registry{
@@ -129,6 +125,10 @@ func (r *Registry) connectAndRegister() error {
 		r.cancelFunc()
 	}
 
+	if r.cfg.Etcd == nil {
+		return errors.New("a valid *etcd.Config{} is required")
+	}
+
 	r.client, err = etcd.New(*r.cfg.Etcd)
 	if err != nil {
 		return errors.Wrapf(err, "failed to create Etcd client, cfg=%v", *r.cfg.Etcd)
@@ -153,7 +153,7 @@ func (r *Registry) connectAndRegister() error {
 	}
 
 	// Write our backend spec config
-	key := fmt.Sprintf(serverFmt, r.cfg.Chroot, r.backendSpec.AppName, r.backendSpec.ID)
+	key := fmt.Sprintf(serverFmt, r.cfg.Namespace, r.backendSpec.AppName, r.backendSpec.ID)
 	_, err = r.client.Put(r.ctx, key, r.backendSpec.serverSpec(), etcd.WithLease(r.leaseID))
 	if err != nil {
 		return errors.Wrap(err, "failed to write backend spec")
@@ -169,7 +169,9 @@ func (r *Registry) connectAndRegister() error {
 }
 
 func (r *Registry) Stop() {
-	r.cancelFunc()
+	if r.cancelFunc != nil {
+		r.cancelFunc()
+	}
 	if r.once != nil {
 		r.once.Do(func() { close(r.done) })
 	}
@@ -177,20 +179,20 @@ func (r *Registry) Stop() {
 }
 
 func (r *Registry) registerBackend(bes *backendSpec) error {
-	betKey := fmt.Sprintf(backendFmt, r.cfg.Chroot, bes.AppName)
+	betKey := fmt.Sprintf(backendFmt, r.cfg.Namespace, bes.AppName)
 	betVal := bes.typeSpec()
 	_, err := r.client.Put(r.ctx, betKey, betVal)
 	if err != nil {
 		return errors.Wrapf(err, "failed to set backend type, %s", betKey)
 	}
-	besKey := fmt.Sprintf(serverFmt, r.cfg.Chroot, bes.AppName, bes.ID)
+	besKey := fmt.Sprintf(serverFmt, r.cfg.Namespace, bes.AppName, bes.ID)
 	besVar := bes.serverSpec()
 	_, err = r.client.Put(r.ctx, besKey, besVar, etcd.WithLease(r.leaseID))
 	return errors.Wrapf(err, "failed to set backend spec, %s", besKey)
 }
 
 func (r *Registry) registerFrontend(fes *frontendSpec) error {
-	fesKey := fmt.Sprintf(frontendFmt, r.cfg.Chroot, fes.Host, fes.ID)
+	fesKey := fmt.Sprintf(frontendFmt, r.cfg.Namespace, fes.Host, fes.ID)
 	fesVal := fes.spec()
 	_, err := r.client.Put(r.ctx, fesKey, fesVal)
 	if err != nil {
@@ -198,7 +200,7 @@ func (r *Registry) registerFrontend(fes *frontendSpec) error {
 	}
 	for i, mw := range fes.Middlewares {
 		mw.Priority = i
-		mwKey := fmt.Sprintf(middlewareFmt, r.cfg.Chroot, fes.Host, fes.ID, mw.ID)
+		mwKey := fmt.Sprintf(middlewareFmt, r.cfg.Namespace, fes.Host, fes.ID, mw.ID)
 		mwVal, err := json.Marshal(mw)
 		if err != nil {
 			return errors.Wrapf(err, "failed to JSON middleware, %v", mw)

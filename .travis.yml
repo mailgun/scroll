@@ -7,7 +7,7 @@ install:
   - dep ensure
 script:
   - ./enable-etcd-auth.sh
-  - go test . ./vulcand/
+  - go test . ./vulcand/ ./vulcand/middleware
   - docker-compose down
 sudo: required
 services:
