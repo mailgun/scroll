@@ -35,6 +35,9 @@ func (s *RegistrySuite) SetupSuite() {
 	s.proxy, err = tox.CreateProxy("etcdv3", "proxy:22379", "etcd:2379")
 	s.Require().Nil(err)
 
+	//log.InitWithConfig(log.Config{Name: log.Console})
+	//log.SetSeverity(log.SeverityDebug)
+
 	// Send all etcd traffic through the proxy
 	s.cfg = Config{
 		Namespace: testNamespace,
@@ -133,7 +136,7 @@ func (s *RegistrySuite) TestHeartbeat() {
 	// Then
 	res, err = s.client.Get(s.ctx, testNamespace+"/backends/app1/servers", etcd.WithPrefix())
 	s.Require().Nil(err)
-	s.Equal(len(res.Kvs), 1)
+	s.Require().Equal(len(res.Kvs), 1)
 	serverNode = res.Kvs[0]
 	s.Equal(string(serverNode.Value), `{"URL":"http://192.168.19.2:8000"}`)
 	s.Equal(serverNode.Lease, int64(s.r.leaseID))
@@ -166,7 +169,7 @@ func (s *RegistrySuite) TestHeartbeatStop() {
 func (s *RegistrySuite) TestHeartbeatNetworkTimeout() {
 	res, err := s.client.Get(s.ctx, testNamespace+"/backends/app1/servers", etcd.WithPrefix())
 	s.Require().Nil(err)
-	s.Equal(len(res.Kvs), 1)
+	s.Require().Equal(len(res.Kvs), 1)
 	s.Equal(string(res.Kvs[0].Value), `{"URL":"http://192.168.19.2:8000"}`)
 	s.Equal(res.Kvs[0].Lease, int64(s.r.leaseID))
 	prevLease := s.r.leaseID
@@ -174,18 +177,18 @@ func (s *RegistrySuite) TestHeartbeatNetworkTimeout() {
 	// When
 	s.proxy.Disable()
 
-	// Wait 3 seconds
+	// Wait for disconnect to be discovered
 	<-time.After(time.Second * 3)
 
 	s.proxy.Enable()
 
 	// Give time to reconnect
-	<-time.After(time.Second * 2)
+	<-time.After(time.Second * 3)
 
 	// Then
 	res, err = s.client.Get(s.ctx, testNamespace+"/backends/app1/servers", etcd.WithPrefix())
 	s.Require().Nil(err)
-	s.Equal(len(res.Kvs), 1)
+	s.Require().Equal(len(res.Kvs), 1)
 	s.Equal(string(res.Kvs[0].Value), `{"URL":"http://192.168.19.2:8000"}`)
 	s.Equal(res.Kvs[0].Lease, int64(s.r.leaseID))
 	s.NotEqual(s.r.leaseID, prevLease)

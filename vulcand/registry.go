@@ -103,8 +103,11 @@ func (r *Registry) Start() error {
 				}
 				// This just indicates we reconnected, but haven't received a keep alive response
 				status = connected
-			case <-r.keepAliveChan:
-				status = alive
+			case keep := <-r.keepAliveChan:
+				if keep != nil {
+					log.Debugf("keep alive %+v", keep)
+					status = alive
+				}
 			case <-r.done:
 				_, err := r.client.Revoke(context.Background(), r.leaseID)
 				log.Infof("lease revoked err=(%v)", err)
