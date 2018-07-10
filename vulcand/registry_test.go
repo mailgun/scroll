@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-const testNamespace = "/test"
+const testNamespace = "/test-registry"
 
 func TestRegistry(t *testing.T) {
 	suite.Run(t, new(RegistrySuite))
@@ -122,7 +122,7 @@ func (s *RegistrySuite) TestRegisterFrontend() {
 	s.Equal(res.Kvs[0].Lease, int64(0))
 }
 
-func (s *RegistrySuite) TestHeartbeat() {
+func (s *RegistrySuite) TestHeartbeatOnly() {
 	res, err := s.client.Get(s.ctx, testNamespace+"/backends/app1/servers", etcd.WithPrefix())
 	s.Require().Nil(err)
 	s.Equal(len(res.Kvs), 1)

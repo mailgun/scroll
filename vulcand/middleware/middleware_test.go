@@ -11,7 +11,7 @@ import (
 	. "gopkg.in/check.v1"
 )
 
-const testNamespace = "/test"
+const testNamespace = "/test-middleware"
 
 func TestClient(t *testing.T) {
 	TestingT(t)

@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	testNamespace = "/test"
+	testNamespace = "/test-config"
 )
 
 func TestConfig(t *testing.T) {
