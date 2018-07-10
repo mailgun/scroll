@@ -14,6 +14,8 @@ import (
 	"github.com/mailgun/scroll/vulcand"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/grpclog"
+	"io/ioutil"
+	"crypto/x509"
 )
 
 const (
@@ -33,6 +35,7 @@ const (
 	localSecureEndpoint     = "https://127.0.0.1:2379"
 	defaultRegistrationTTL  = 30 * time.Second
 	defaultNamespace        = "/vulcand"
+	pathToCertAuthority     = "/etc/mailgun/certs/ca.pem"
 )
 
 func applyDefaults(cfg *AppConfig) error {
@@ -76,6 +79,19 @@ func applyDefaults(cfg *AppConfig) error {
 
 	// If 'user' and 'pass' supplied assume skip verify TLS config
 	holster.SetDefault(&cfg.Vulcand.Etcd.TLS, &tls.Config{InsecureSkipVerify: true})
+
+	// If the CA file exists use that
+	if _, err := os.Stat(pathToCertAuthority); err == nil {
+		var rpool *x509.CertPool = nil
+		if pemBytes, err := ioutil.ReadFile(pathToCertAuthority); err == nil {
+			rpool = x509.NewCertPool()
+			rpool.AppendCertsFromPEM(pemBytes)
+		} else {
+			return errors.Errorf("while loading Cert CA File '%s': %s", pathToCertAuthority, err)
+		}
+		cfg.Vulcand.Etcd.TLS.RootCAs = rpool
+		cfg.Vulcand.Etcd.TLS.InsecureSkipVerify = false
+	}
 
 	// If we provided the default endpoint, make it a secure endpoint
 	if cfg.Vulcand.Etcd.Endpoints[0] == localInsecureEndpoint {
