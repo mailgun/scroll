@@ -3,8 +3,10 @@ package scroll
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 	"time"
@@ -14,8 +16,6 @@ import (
 	"github.com/mailgun/scroll/vulcand"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/grpclog"
-	"io/ioutil"
-	"crypto/x509"
 )
 
 const (
@@ -39,13 +39,15 @@ const (
 )
 
 func applyDefaults(cfg *AppConfig) error {
-	var envEndpoint, envUser, envPass, envDebug, endpoint string
+	var envEndpoint, envUser, envPass, envDebug, endpoint, tlsCertFile, tlsKeyFile string
 
 	for k, v := range map[string]*string{
 		"ETCD3_ENDPOINT": &envEndpoint,
 		"ETCD3_USER":     &envUser,
 		"ETCD3_PASSWORD": &envPass,
 		"ETCD3_DEBUG":    &envDebug,
+		"ETCD3_TLS_CERT": &tlsCertFile,
+		"ETCD3_TLS_KEY":  &tlsKeyFile,
 	} {
 		*v = os.Getenv(k)
 	}
@@ -87,10 +89,19 @@ func applyDefaults(cfg *AppConfig) error {
 			rpool = x509.NewCertPool()
 			rpool.AppendCertsFromPEM(pemBytes)
 		} else {
-			return errors.Errorf("while loading Cert CA File '%s': %s", pathToCertAuthority, err)
+			return errors.Errorf("while loading cert CA file '%s': %s", pathToCertAuthority, err)
 		}
 		cfg.Vulcand.Etcd.TLS.RootCAs = rpool
 		cfg.Vulcand.Etcd.TLS.InsecureSkipVerify = false
+	}
+
+	if tlsCertFile != "" && tlsKeyFile != "" {
+		tlsCert, err := tls.LoadX509KeyPair(tlsCertFile, tlsKeyFile)
+		if err != nil {
+			return errors.Errorf("while loading cert '%s' and key file '%s': %s",
+				tlsCertFile, tlsKeyFile, err)
+		}
+		cfg.Vulcand.Etcd.TLS.Certificates = []tls.Certificate{tlsCert}
 	}
 
 	// If we provided the default endpoint, make it a secure endpoint
