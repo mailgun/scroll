@@ -35,11 +35,12 @@ const (
 	localSecureEndpoint     = "https://127.0.0.1:2379"
 	defaultRegistrationTTL  = 30 * time.Second
 	defaultNamespace        = "/vulcand"
-	pathToCertAuthority     = "/etc/mailgun/certs/ca.pem"
+	pathToCertAuthority     = "/etc/mailgun/ssl/localhost/ca.pem"
 )
 
 func applyDefaults(cfg *AppConfig) error {
-	var envEndpoint, envUser, envPass, envDebug, endpoint, tlsCertFile, tlsKeyFile string
+	var envEndpoint, envUser, envPass, envDebug, endpoint,
+		tlsCertFile, tlsKeyFile, tlsCaCertFile string
 
 	for k, v := range map[string]*string{
 		"ETCD3_ENDPOINT": &envEndpoint,
@@ -48,6 +49,7 @@ func applyDefaults(cfg *AppConfig) error {
 		"ETCD3_DEBUG":    &envDebug,
 		"ETCD3_TLS_CERT": &tlsCertFile,
 		"ETCD3_TLS_KEY":  &tlsKeyFile,
+		"ETCD3_CA":       &tlsCaCertFile,
 	} {
 		*v = os.Getenv(k)
 	}
@@ -81,15 +83,16 @@ func applyDefaults(cfg *AppConfig) error {
 
 	// If 'user' and 'pass' supplied assume skip verify TLS config
 	holster.SetDefault(&cfg.Vulcand.Etcd.TLS, &tls.Config{InsecureSkipVerify: true})
+	holster.SetDefault(&tlsCaCertFile, pathToCertAuthority)
 
 	// If the CA file exists use that
-	if _, err := os.Stat(pathToCertAuthority); err == nil {
+	if _, err := os.Stat(tlsCaCertFile); err == nil {
 		var rpool *x509.CertPool = nil
-		if pemBytes, err := ioutil.ReadFile(pathToCertAuthority); err == nil {
+		if pemBytes, err := ioutil.ReadFile(tlsCaCertFile); err == nil {
 			rpool = x509.NewCertPool()
 			rpool.AppendCertsFromPEM(pemBytes)
 		} else {
-			return errors.Errorf("while loading cert CA file '%s': %s", pathToCertAuthority, err)
+			return errors.Errorf("while loading cert CA file '%s': %s", tlsCaCertFile, err)
 		}
 		cfg.Vulcand.Etcd.TLS.RootCAs = rpool
 		cfg.Vulcand.Etcd.TLS.InsecureSkipVerify = false
