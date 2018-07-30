@@ -12,6 +12,7 @@
   packages = [
     "auth/authpb",
     "clientv3",
+    "clientv3/concurrency",
     "etcdserver/api/v3rpc/rpctypes",
     "etcdserver/etcdserverpb",
     "mvcc/mvccpb",
@@ -80,9 +81,12 @@
 
 [[projects]]
   name = "github.com/mailgun/holster"
-  packages = ["."]
-  revision = "a1d7aa39816cd5aca8a270631b8b2ce9b1c64cdd"
-  version = "v1.7.1"
+  packages = [
+    ".",
+    "etcdutil"
+  ]
+  revision = "9f97bd402f7f03efce9de2963df07f5b6c2e8659"
+  version = "v1.7.4"
 
 [[projects]]
   branch = "master"
@@ -228,6 +232,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "de65071ef516123d725c5e8e56afa34a3d16a2a1120196a1d10d4790cf8c3d0c"
+  inputs-digest = "50088a9d1a1d2ecf7943df0f8929a3a08fc334753676d0521f01898cdaad392d"
   solver-name = "gps-cdcl"
   solver-version = 1

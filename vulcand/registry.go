@@ -77,9 +77,9 @@ func (r *Registry) Start() error {
 		alive
 	)
 
+	r.wg.Add(1)
 	go func() {
 		var status int
-		r.wg.Add(1)
 		for {
 			select {
 			case <-heartBeatTicker:
