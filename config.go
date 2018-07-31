@@ -28,8 +28,6 @@ const (
 	defaultHTTPReadTimeout  = 10 * time.Second
 	defaultHTTPWriteTimeout = 60 * time.Second
 	defaultHTTPIdleTimeout  = 60 * time.Second
-	localInsecureEndpoint   = "http://127.0.0.1:2379"
-	localSecureEndpoint     = "https://127.0.0.1:2379"
 	defaultRegistrationTTL  = 30 * time.Second
 	defaultNamespace        = "/vulcand"
 )
@@ -37,6 +35,7 @@ const (
 func applyDefaults(cfg *AppConfig) error {
 	var err error
 
+	holster.SetDefault(&cfg.Vulcand, &vulcand.Config{})
 	cfg.Vulcand.Etcd, err = etcdutil.NewEtcdConfig(cfg.Vulcand.Etcd)
 	if err != nil {
 		return errors.Wrap(err, "while creating new etcd config")
@@ -46,7 +45,6 @@ func applyDefaults(cfg *AppConfig) error {
 	holster.SetDefault(&cfg.HTTP.WriteTimeout, defaultHTTPWriteTimeout)
 	holster.SetDefault(&cfg.HTTP.IdleTimeout, defaultHTTPIdleTimeout)
 
-	holster.SetDefault(&cfg.Vulcand, &vulcand.Config{})
 	holster.SetDefault(&cfg.Vulcand.TTL, defaultRegistrationTTL)
 	holster.SetDefault(&cfg.Vulcand.Etcd, &etcd.Config{})
 
@@ -61,7 +59,7 @@ func fetchEtcdConfig(cfg *AppConfig) error {
 	}
 
 	env := os.Getenv("MG_ENV")
-	if env != "" {
+	if env == "" {
 		return nil
 	}
 

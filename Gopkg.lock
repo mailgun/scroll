@@ -18,8 +18,8 @@
     "mvcc/mvccpb",
     "pkg/types"
   ]
-  revision = "33245c6b5b49130ca99280408fadfab01aac0e48"
-  version = "v3.3.8"
+  revision = "fca8add78a9d926166eb739b8e4a124434025ba3"
+  version = "v3.3.9"
 
 [[projects]]
   name = "github.com/davecgh/go-spew"
@@ -40,8 +40,8 @@
     "proto",
     "protoc-gen-gogo/descriptor"
   ]
-  revision = "1adfc126b41513cc696b209667c8656ea7aac67c"
-  version = "v1.0.0"
+  revision = "636bf0302bc95575d69441b25a2603156ffdddf1"
+  version = "v1.1.1"
 
 [[projects]]
   name = "github.com/golang/protobuf"
@@ -85,8 +85,8 @@
     ".",
     "etcdutil"
   ]
-  revision = "9f97bd402f7f03efce9de2963df07f5b6c2e8659"
-  version = "v1.7.4"
+  revision = "3df4eb4cd0709f3c8653413b6def9bb21e253593"
+  version = "v1.7.7"
 
 [[projects]]
   branch = "master"
@@ -121,8 +121,8 @@
 [[projects]]
   name = "github.com/sirupsen/logrus"
   packages = ["."]
-  revision = "c155da19408a8799da419ed3eeb0cb5db0ad5dbc"
-  version = "v1.0.5"
+  revision = "3e01752db0189b9157070a0e1668a620f9a85da2"
+  version = "v1.0.6"
 
 [[projects]]
   name = "github.com/stretchr/testify"
@@ -138,7 +138,7 @@
   branch = "master"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
-  revision = "a49355c7e3f8fe157a85be2f77e6e269a0f89602"
+  revision = "f027049dab0ad238e394a753dba2d14753473a04"
 
 [[projects]]
   branch = "master"
@@ -152,7 +152,7 @@
     "internal/timeseries",
     "trace"
   ]
-  revision = "97aa3a539ec716117a9d15a4659a911f50d13c3c"
+  revision = "19491d39cadbd9cd33f26ca22cc89ba4ba38251c"
 
 [[projects]]
   branch = "master"
@@ -161,7 +161,7 @@
     "unix",
     "windows"
   ]
-  revision = "7138fd3d9dc8335c567ca206f4333fb75eb05d56"
+  revision = "acbc56fc7007d2a01796d5bde54f39e3b3e95945"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -188,7 +188,7 @@
   branch = "master"
   name = "google.golang.org/genproto"
   packages = ["googleapis/rpc/status"]
-  revision = "ff3583edef7de132f219f0efc00e097cabcc0ec0"
+  revision = "daca94659cb50e9f37c1b834680f2e46358f10b0"
 
 [[projects]]
   name = "google.golang.org/grpc"
@@ -207,7 +207,9 @@
     "internal",
     "internal/backoff",
     "internal/channelz",
+    "internal/envconfig",
     "internal/grpcrand",
+    "internal/transport",
     "keepalive",
     "metadata",
     "naming",
@@ -217,11 +219,10 @@
     "resolver/passthrough",
     "stats",
     "status",
-    "tap",
-    "transport"
+    "tap"
   ]
-  revision = "168a6198bcb0ef175f7dacec0b8691fc141dc9b8"
-  version = "v1.13.0"
+  revision = "32fb0ac620c32ba40a4626ddf94d90d12cce3455"
+  version = "v1.14.0"
 
 [[projects]]
   branch = "v1"
@@ -232,6 +233,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "50088a9d1a1d2ecf7943df0f8929a3a08fc334753676d0521f01898cdaad392d"
+  inputs-digest = "27b17d9b700e93c38ad9d42047c4fb510fb2893f94a4458dc6031efeb78a0805"
   solver-name = "gps-cdcl"
   solver-version = 1
