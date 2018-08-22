@@ -1,30 +1,4 @@
-# scroll
-
-[![Build Status](http://img.shields.io/travis/mailgun/scroll/master.svg)](https://travis-ci.org/mailgun/scroll)
-
-
-Scroll is a lightweight library for building Go HTTP services at Mailgun. It is
-built on top of [mux](http://www.gorillatoolkit.org/pkg/mux) and adds:
-
-- Service Discovery
-- Graceful Shutdown
-- Configurable Logging
-- Request Metrics
-
-**Scroll is a work in progress. Use at your own risk.**
-
-## Installation
-
-```
-go get github.com/mailgun/scroll
-```
-
-## Getting Started
-
-Building an application with Scroll is simple. Here's a server that listens for GET or POST requests to `http://0.0.0.0:8080/resources/{resourceID}` and echoes back the resource ID provided in the URL.
-
-```go
-package main
+package scroll_test
 
 import (
 	"fmt"
@@ -50,7 +24,8 @@ func Example() {
 	// uses the environment to create a new etcd config
 	os.Setenv("ETCD3_USER", "root")
 	os.Setenv("ETCD3_PASSWORD", "rootpw")
-	os.Setenv("ETCD3_ENDPOINT", "localhost:2379")
+	os.Setenv("ETCD3_ENDPOINT", "https://localhost:2379")
+	// Set this to force connecting with TLS, but without cert verification
 	os.Setenv("ETCD3_SKIP_VERIFY", "true")
 
 	// If this is set to anything but empty string "", scroll will attempt
@@ -82,12 +57,12 @@ func Example() {
 
 	app, err := scroll.NewAppWithConfig(scroll.AppConfig{
 		Vulcand:          &vulcand.Config{Etcd: cfg},
-		PublicAPIURL:     "http://api.mailgun.net:1212",
-		ProtectedAPIURL:  "http://localhost:1212",
+		PublicAPIURL:     "http://api.mailgun.net:12121",
+		ProtectedAPIURL:  "http://localhost:12121",
 		PublicAPIHost:    "api.mailgun.net",
 		ProtectedAPIHost: "localhost",
 		Name:             APPNAME,
-		ListenPort:       1212,
+		ListenPort:       12121,
 		Client:           mc,
 	})
 	if err != nil {
@@ -106,5 +81,43 @@ func Example() {
 	)
 
 	// Start serving requests
-	app.Run()
-```
+	go func() {
+		if err := app.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "while serving requests: %s\n", err)
+		}
+	}()
+
+	// Wait for the endpoint to begin accepting connections
+	waitFor("http://localhost:12121")
+
+	// Get the response
+	r, err := http.Get("http://localhost:12121/hello")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "GET request failed with: %s\n", err)
+		return
+	}
+	content, _ := ioutil.ReadAll(r.Body)
+
+	fmt.Println(string(content))
+
+	// Shutdown the server and de-register routes with vulcand
+	app.Stop()
+
+	// Output:
+	// {"message":"Hello World"}
+}
+
+// Waits for the endpoint to start accepting connections
+func waitFor(url string) {
+	after := time.After(time.Second * 10)
+	_, err := http.Get(url)
+	for err != nil {
+		_, err = http.Get(url)
+		select {
+		case <-after:
+			fmt.Fprintf(os.Stderr, "endpoint timeout: %s\n", err)
+			os.Exit(1)
+		default:
+		}
+	}
+}

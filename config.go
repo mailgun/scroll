@@ -4,9 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"time"
-
 	"os"
+	"time"
 
 	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/mailgun/holster"

@@ -1,13 +1,13 @@
 language: go
 go:
-  - 1.9
+  - "1.10"
 install:
   - docker-compose up -d
   - go get -u github.com/golang/dep/cmd/dep
   - dep ensure
 script:
   - ./enable-etcd-auth.sh
-  - go test -v -test.parallel 0 . ./vulcand ./vulcand/middleware
+  - go test -v -test.parallel=1 . ./vulcand ./vulcand/middleware
   - docker-compose down
 sudo: required
 services:
