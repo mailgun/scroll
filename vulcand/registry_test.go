@@ -2,69 +2,106 @@ package vulcand
 
 import (
 	"context"
+	"crypto/tls"
 	"testing"
 	"time"
 
-	etcd "github.com/coreos/etcd/client"
-	. "gopkg.in/check.v1"
+	"github.com/Shopify/toxiproxy/client"
+	etcd "github.com/coreos/etcd/clientv3"
+	"github.com/stretchr/testify/suite"
 )
 
-const testChroot = "/test"
+const testNamespace = "/test-registry"
 
-func TestClient(t *testing.T) {
-	TestingT(t)
+func TestRegistry(t *testing.T) {
+	suite.Run(t, new(RegistrySuite))
 }
 
 type RegistrySuite struct {
-	etcdKeyAPI etcd.KeysAPI
+	suite.Suite
+	client     *etcd.Client
 	ctx        context.Context
 	cancelFunc context.CancelFunc
 	r          *Registry
+	cfg        Config
+	proxy      *toxiproxy.Proxy
 }
 
-var _ = Suite(&RegistrySuite{})
-
-func (s *RegistrySuite) SetUpSuite(c *C) {
-	etcdClt, err := etcd.New(etcd.Config{Endpoints: []string{localEtcdProxy}})
-	c.Assert(err, IsNil)
-	s.etcdKeyAPI = etcd.NewKeysAPI(etcdClt)
-}
-
-func (s *RegistrySuite) SetUpTest(c *C) {
-	s.ctx, s.cancelFunc = context.WithCancel(context.Background())
-	s.etcdKeyAPI.Delete(s.ctx, testChroot, &etcd.DeleteOptions{Recursive: true})
+func (s *RegistrySuite) SetupSuite() {
 	var err error
-	s.r, err = NewRegistry(Config{Chroot: testChroot}, "app1", "192.168.19.2", 8000)
-	c.Assert(err, IsNil)
+
+	// This assumes we used to `docker-compose up` to create the toxiproxy
+	tox := toxiproxy.NewClient("localhost:8474")
+	s.proxy, err = tox.CreateProxy("etcdv3", "proxy:22379", "etcd:2379")
+	s.Require().Nil(err)
+
+	//log.InitWithConfig(log.Config{Name: log.Console})
+	//log.SetSeverity(log.SeverityDebug)
+
+	// Send all etcd traffic through the proxy
+	s.cfg = Config{
+		Namespace: testNamespace,
+		Etcd: &etcd.Config{
+			Endpoints: []string{"https://localhost:22379"},
+			Username:  "root",
+			Password:  "rootpw",
+			TLS: &tls.Config{
+				InsecureSkipVerify: true,
+			},
+		},
+		TTL: time.Second, // Set a short timeout so we can test keep alive disconnects
+	}
+
+	s.client, err = etcd.New(*s.cfg.Etcd)
+	s.Require().Nil(err)
 }
 
-func (s *RegistrySuite) TearDownTest(c *C) {
+func (s *RegistrySuite) TearDownSuite() {
+	s.proxy.Delete()
+}
+
+func (s *RegistrySuite) SetupTest() {
+	s.ctx, s.cancelFunc = context.WithTimeout(context.Background(), time.Second*20)
+	_, err := s.client.Delete(s.ctx, testNamespace, etcd.WithPrefix())
+	s.Require().Nil(err)
+	s.r, err = NewRegistry(
+		s.cfg,
+		"app1",
+		"192.168.19.2",
+		8000)
+	s.Require().Nil(err)
+	err = s.r.Start()
+	s.Require().Nil(err)
+
+}
+
+func (s *RegistrySuite) TearDownTest() {
 	s.r.Stop()
 	s.cancelFunc()
 }
 
-func (s *RegistrySuite) TestRegisterBackend(c *C) {
+func (s *RegistrySuite) TestRegisterBackend() {
 	bes, err := newBackendSpecWithID("foo", "bar", "example.com", 8000)
-	c.Assert(err, IsNil)
+	s.Require().Nil(err)
 
 	// When
 	err = s.r.registerBackend(bes)
 
 	// Then
-	c.Assert(err, IsNil)
+	s.Require().Nil(err)
 
-	res, err := s.etcdKeyAPI.Get(s.ctx, testChroot+"/backends/bar/backend", nil)
-	c.Assert(err, IsNil)
-	c.Assert(res.Node.Value, Equals, `{"Type":"http"}`)
-	c.Assert(res.Node.TTL, Equals, int64(0))
+	res, err := s.client.Get(s.ctx, testNamespace+"/backends/bar/backend")
+	s.Require().Nil(err)
+	s.Equal(string(res.Kvs[0].Value), `{"Type":"http"}`)
+	s.Equal(res.Kvs[0].Lease, int64(0))
 
-	res, err = s.etcdKeyAPI.Get(s.ctx, testChroot+"/backends/bar/servers/foo", nil)
-	c.Assert(err, IsNil)
-	c.Assert(res.Node.Value, Equals, `{"URL":"http://example.com:8000"}`)
-	c.Assert(res.Node.TTL, Equals, int64(defaultRegistrationTTL/time.Second))
+	res, err = s.client.Get(s.ctx, testNamespace+"/backends/bar/servers/foo")
+	s.Require().Nil(err)
+	s.Equal(string(res.Kvs[0].Value), `{"URL":"http://example.com:8000"}`)
+	s.Equal(res.Kvs[0].Lease, int64(s.r.leaseID))
 }
 
-func (s *RegistrySuite) TestRegisterFrontend(c *C) {
+func (s *RegistrySuite) TestRegisterFrontend() {
 	m := []Middleware{{Type: "bar", ID: "bazz", Spec: "blah"}}
 	fes := newFrontendSpec("foo", "host", "/path/to/server", []string{"GET"}, m)
 
@@ -72,63 +109,87 @@ func (s *RegistrySuite) TestRegisterFrontend(c *C) {
 	err := s.r.registerFrontend(fes)
 
 	// Then
-	c.Assert(err, IsNil)
+	s.Require().Nil(err)
 
-	res, err := s.etcdKeyAPI.Get(s.ctx, testChroot+"/frontends/host.get.path.to.server/frontend", nil)
-	c.Assert(err, IsNil)
-	c.Assert(res.Node.Value, Equals, `{"Type":"http","BackendId":"foo","Route":"Host(\"host\") && Method(\"GET\") && Path(\"/path/to/server\")","Settings":{"FailoverPredicate":"(IsNetworkError() || ResponseCode() == 503) && Attempts() <= 2","PassHostHeader":true}}`)
-	c.Assert(res.Node.TTL, Equals, int64(0))
+	res, err := s.client.Get(s.ctx, testNamespace+"/frontends/host.get.path.to.server/frontend")
+	s.Require().Nil(err)
+	s.Equal(string(res.Kvs[0].Value), `{"Type":"http","BackendId":"foo","Route":"Host(\"host\") && Method(\"GET\") && Path(\"/path/to/server\")","Settings":{"FailoverPredicate":"(IsNetworkError() || ResponseCode() == 503) && Attempts() <= 2","PassHostHeader":true}}`)
+	s.Equal(res.Kvs[0].Lease, int64(0))
 
-	res, err = s.etcdKeyAPI.Get(s.ctx, testChroot+"/frontends/host.get.path.to.server/middlewares/bazz", nil)
-	c.Assert(err, IsNil)
-	c.Assert(res.Node.Value, Equals, `{"Type":"bar","Id":"bazz","Priority":0,"Middleware":"blah"}`)
-	c.Assert(res.Node.TTL, Equals, int64(0))
+	res, err = s.client.Get(s.ctx, testNamespace+"/frontends/host.get.path.to.server/middlewares/bazz")
+	s.Require().Nil(err)
+	s.Equal(string(res.Kvs[0].Value), `{"Type":"bar","Id":"bazz","Priority":0,"Middleware":"blah"}`)
+	s.Equal(res.Kvs[0].Lease, int64(0))
 }
 
-func (s *RegistrySuite) TestHeartbeat(c *C) {
-	s.r.cfg.TTL = time.Second
-	err := s.r.Start()
-	res, err := s.etcdKeyAPI.Get(s.ctx, testChroot+"/backends/app1/servers", &etcd.GetOptions{Recursive: true})
-	c.Assert(err, IsNil)
-	c.Assert(1, Equals, len(res.Node.Nodes))
-	serverNode := res.Node.Nodes[0]
-	c.Assert(serverNode.Value, Equals, `{"URL":"http://192.168.19.2:8000"}`)
-	c.Assert(serverNode.TTL, Equals, int64(1))
+func (s *RegistrySuite) TestHeartbeatOnly() {
+	res, err := s.client.Get(s.ctx, testNamespace+"/backends/app1/servers", etcd.WithPrefix())
+	s.Require().Nil(err)
+	s.Equal(len(res.Kvs), 1)
+	serverNode := res.Kvs[0]
+	s.Equal(string(serverNode.Value), `{"URL":"http://192.168.19.2:8000"}`)
+	s.Equal(serverNode.Lease, int64(s.r.leaseID))
 
 	// When
 	time.Sleep(3 * time.Second)
 
 	// Then
-	res, err = s.etcdKeyAPI.Get(s.ctx, testChroot+"/backends/app1/servers", &etcd.GetOptions{Recursive: true})
-	c.Assert(err, IsNil)
-	c.Assert(1, Equals, len(res.Node.Nodes))
-	serverNode = res.Node.Nodes[0]
-	c.Assert(serverNode.Value, Equals, `{"URL":"http://192.168.19.2:8000"}`)
-	c.Assert(serverNode.TTL, Equals, int64(1))
+	res, err = s.client.Get(s.ctx, testNamespace+"/backends/app1/servers", etcd.WithPrefix())
+	s.Require().Nil(err)
+	s.Require().Equal(len(res.Kvs), 1)
+	serverNode = res.Kvs[0]
+	s.Equal(string(serverNode.Value), `{"URL":"http://192.168.19.2:8000"}`)
+	s.Equal(serverNode.Lease, int64(s.r.leaseID))
 }
 
 // When registry is stopped the backend server record is immediately removed,
 // but the backend type record is left intact.
-func (s *RegistrySuite) TestHeartbeatStop(c *C) {
-	err := s.r.Start()
-
-	res, err := s.etcdKeyAPI.Get(s.ctx, testChroot+"/backends/app1/servers", &etcd.GetOptions{Recursive: true})
-	c.Assert(err, IsNil)
-	c.Assert(1, Equals, len(res.Node.Nodes))
-	serverNode := res.Node.Nodes[0]
-	c.Assert(serverNode.Value, Equals, `{"URL":"http://192.168.19.2:8000"}`)
-	c.Assert(serverNode.TTL, Equals, int64(defaultRegistrationTTL/time.Second))
+func (s *RegistrySuite) TestHeartbeatStop() {
+	res, err := s.client.Get(s.ctx, testNamespace+"/backends/app1/servers", etcd.WithPrefix())
+	s.Require().Nil(err)
+	s.Equal(len(res.Kvs), 1)
+	serverNode := res.Kvs[0]
+	s.Equal(string(serverNode.Value), `{"URL":"http://192.168.19.2:8000"}`)
+	s.Equal(serverNode.Lease, int64(s.r.leaseID))
 
 	// When
 	s.r.Stop()
 
 	// Then
-	res, err = s.etcdKeyAPI.Get(s.ctx, testChroot+"/backends/app1/backend", nil)
-	c.Assert(err, IsNil)
-	c.Assert(res.Node.Value, Equals, `{"Type":"http"}`)
-	c.Assert(res.Node.TTL, Equals, int64(0))
+	res, err = s.client.Get(s.ctx, testNamespace+"/backends/app1/backend")
+	s.Require().Nil(err)
+	s.Equal(string(res.Kvs[0].Value), `{"Type":"http"}`)
+	s.Equal(res.Kvs[0].Lease, int64(0))
 
-	res, err = s.etcdKeyAPI.Get(s.ctx, testChroot+"/backends/app1/servers", &etcd.GetOptions{Recursive: true})
-	c.Assert(err, IsNil)
-	c.Assert(0, Equals, len(res.Node.Nodes))
+	res, err = s.client.Get(s.ctx, testNamespace+"/backends/app1/servers", etcd.WithPrefix())
+	s.Require().Nil(err)
+	s.Equal(len(res.Kvs), 0)
+}
+
+func (s *RegistrySuite) TestHeartbeatNetworkTimeout() {
+	res, err := s.client.Get(s.ctx, testNamespace+"/backends/app1/servers", etcd.WithPrefix())
+	s.Require().Nil(err)
+	s.Require().Equal(len(res.Kvs), 1)
+	s.Equal(string(res.Kvs[0].Value), `{"URL":"http://192.168.19.2:8000"}`)
+	s.Equal(res.Kvs[0].Lease, int64(s.r.leaseID))
+	prevLease := s.r.leaseID
+
+	// When
+	s.proxy.Disable()
+
+	// Wait for disconnect to be discovered
+	<-time.After(time.Second * 3)
+
+	s.proxy.Enable()
+
+	// Give time to reconnect
+	<-time.After(time.Second * 3)
+
+	// Then
+	res, err = s.client.Get(s.ctx, testNamespace+"/backends/app1/servers", etcd.WithPrefix())
+	s.Require().Nil(err)
+	s.Require().Equal(len(res.Kvs), 1)
+	s.Equal(string(res.Kvs[0].Value), `{"URL":"http://192.168.19.2:8000"}`)
+	s.Equal(res.Kvs[0].Lease, int64(s.r.leaseID))
+	s.NotEqual(s.r.leaseID, prevLease)
 }

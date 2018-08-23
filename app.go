@@ -14,32 +14,30 @@ import (
 	"github.com/mailgun/log"
 	"github.com/mailgun/metrics"
 	"github.com/mailgun/scroll/vulcand"
-)
-
-const (
-	// Suggested result set limit for APIs that may return many entries (e.g. paging).
-	DefaultLimit = 100
-
-	// Suggested max allowed result set limit for APIs that may return many entries (e.g. paging).
-	MaxLimit = 10000
-
-	// Suggested max allowed amount of entries that batch APIs can accept (e.g. batch uploads).
-	MaxBatchSize = 1000
-
-	defaultHTTPReadTimeout  = 10 * time.Second
-	defaultHTTPWriteTimeout = 60 * time.Second
-	defaultHTTPIdleTimeout  = 60 * time.Second
+	"github.com/pkg/errors"
 )
 
 // Represents an app.
 type App struct {
-	once 	   *sync.Once
+	once       *sync.Once
 	Config     AppConfig
 	router     *mux.Router
 	stats      *appStats
 	vulcandReg *vulcand.Registry
 	done       chan struct{}
 	wg         sync.WaitGroup
+}
+
+// This is a separate struct because JSON unmarshal() throws errors
+// on the functions in AppConfig.Client
+type JSONConfig struct {
+	PublicAPIHost    string `json:"public_api_host"`
+	PublicAPIURL     string `json:"public_api_url"`
+	ProtectedAPIHost string `json:"protected_api_host"`
+	ProtectedAPIURL  string `json:"protected_api_url"`
+
+	// Retrieved from via etcd
+	VulcandNamespace string `json:"vulcand_namespace"`
 }
 
 // Represents a configuration object an app is created with.
@@ -54,12 +52,13 @@ type AppConfig struct {
 	// optional router to use
 	Router *mux.Router
 
-	// hostnames of the public and protected API entrypoints used for vulcan registration
+	// host names of the public and protected API entrypoints used for vulcand registration
 	PublicAPIHost    string
+	PublicAPIURL     string // NOT USED, included for completeness
 	ProtectedAPIHost string
 	ProtectedAPIURL  string
 
-	// Vulcand config must be provided to enable registration in Etcd.
+	// Vulcand config must be provided to enable registration in etcd.
 	Vulcand *vulcand.Config
 
 	// metrics service used for emitting the app's real-time metrics
@@ -79,15 +78,16 @@ func NewApp() (*App, error) {
 
 // Create a new app with the provided configuration.
 func NewAppWithConfig(config AppConfig) (*App, error) {
-	if config.HTTP.ReadTimeout == 0 {
-		config.HTTP.ReadTimeout = defaultHTTPReadTimeout
+
+	if err := applyDefaults(&config); err != nil {
+		return nil, errors.Wrap(err, "while applying config defaults")
 	}
-	if config.HTTP.WriteTimeout == 0 {
-		config.HTTP.WriteTimeout = defaultHTTPWriteTimeout
+
+	// Connect to etcd and fetch registration config
+	if err := fetchEtcdConfig(&config); err != nil {
+		return nil, errors.Wrap(err, "while fetching etcd config")
 	}
-	if config.HTTP.IdleTimeout == 0 {
-		config.HTTP.IdleTimeout = defaultHTTPIdleTimeout
-	}
+
 	app := App{Config: config}
 
 	if LogRequest == nil {
@@ -224,7 +224,7 @@ func (app *App) Run() error {
 
 func (app *App) Stop() {
 	if app.once != nil {
-		app.once.Do(func() {close(app.done)})
+		app.once.Do(func() { close(app.done) })
 	}
 	app.wg.Wait()
 }

@@ -7,35 +7,37 @@ import (
 	"sync"
 	"time"
 
-	etcd "github.com/coreos/etcd/client"
+	etcd "github.com/coreos/etcd/clientv3"
 	"github.com/mailgun/log"
 	"github.com/pkg/errors"
 )
 
 const (
-	localEtcdProxy = "http://127.0.0.1:2379"
-	frontendFmt    = "%s/frontends/%s.%s/frontend"
-	middlewareFmt  = "%s/frontends/%s.%s/middlewares/%s"
-	backendFmt     = "%s/backends/%s/backend"
-	serverFmt      = "%s/backends/%s/servers/%s"
-
-	defaultRegistrationTTL = 30 * time.Second
+	reconnectInterval = time.Second
+	frontendFmt       = "%s/frontends/%s.%s/frontend"
+	middlewareFmt     = "%s/frontends/%s.%s/middlewares/%s"
+	backendFmt        = "%s/backends/%s/backend"
+	serverFmt         = "%s/backends/%s/servers/%s"
 )
 
 type Config struct {
-	Etcd   *etcd.Config
-	Chroot string
-	TTL    time.Duration
+	Namespace string
+	Etcd      *etcd.Config
+	TTL       time.Duration
 }
 
 type Registry struct {
 	cfg           Config
-	etcdKeysAPI   etcd.KeysAPI
+	client        *etcd.Client
 	backendSpec   *backendSpec
 	frontendSpecs []*frontendSpec
 	ctx           context.Context
 	cancelFunc    context.CancelFunc
 	wg            sync.WaitGroup
+	leaseID       etcd.LeaseID
+	keepAliveChan <-chan *etcd.LeaseKeepAliveResponse
+	once          *sync.Once
+	done          chan struct{}
 }
 
 func NewRegistry(cfg Config, appName, ip string, port int) (*Registry, error) {
@@ -44,36 +46,9 @@ func NewRegistry(cfg Config, appName, ip string, port int) (*Registry, error) {
 		return nil, errors.Wrap(err, "failed to create backend")
 	}
 
-	if cfg.TTL <= 0 {
-		cfg.TTL = defaultRegistrationTTL
-	}
-
-	etcdCfg := cfg.Etcd
-	if etcdCfg == nil {
-		etcdCfg = &etcd.Config{Endpoints: []string{localEtcdProxy}}
-	}
-
-	etcdClt, err := etcd.New(*etcdCfg)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create Etcd client, cfg=%v", etcdCfg)
-	}
-	ctx, cancelFunc := context.WithCancel(context.Background())
-	go func() {
-		for {
-			err := etcdClt.AutoSync(ctx, 10*time.Second)
-			if err == context.DeadlineExceeded || err == context.Canceled {
-				break
-			}
-			log.Errorf("Etcd auto sync failed: err=(%v)", err)
-		}
-	}()
-	etcdKeysAPI := etcd.NewKeysAPI(etcdClt)
 	c := Registry{
 		cfg:         cfg,
 		backendSpec: backendSpec,
-		etcdKeysAPI: etcdKeysAPI,
-		ctx:         ctx,
-		cancelFunc:  cancelFunc,
 	}
 	return &c, nil
 }
@@ -82,12 +57,110 @@ func (r *Registry) AddFrontend(host, path string, methods []string, middlewares 
 	r.frontendSpecs = append(r.frontendSpecs, newFrontendSpec(r.backendSpec.AppName, host, path, methods, middlewares))
 }
 
+func (r *Registry) createNewLease() error {
+	return nil
+}
+
 func (r *Registry) Start() error {
+	heartBeatTicker := time.Tick(r.cfg.TTL)
+	r.done = make(chan struct{})
+	r.once = &sync.Once{}
+
+	// Report any errors the first time we connect
+	if err := r.connectAndRegister(); err != nil {
+		return err
+	}
+
+	const (
+		connected = iota + 1
+		reconnecting
+		alive
+	)
+
+	r.wg.Add(1)
+	go func() {
+		var status int
+		for {
+			select {
+			case <-heartBeatTicker:
+				// If we have NOT received a keep alive response during the ticker interval
+				// assume we should reconnect and register
+				if status != alive {
+					for {
+						if err := r.connectAndRegister(); err != nil {
+							log.Errorf("while reconnecting to etcd: %s", err)
+							status = reconnecting
+							wait := time.After(reconnectInterval)
+							select {
+							case <-r.done:
+								return
+							case <-wait:
+								continue
+							}
+						}
+						break
+					}
+				}
+				// This just indicates we reconnected, but haven't received a keep alive response
+				status = connected
+			case keep := <-r.keepAliveChan:
+				if keep != nil {
+					log.Debugf("keep alive %+v", keep)
+					status = alive
+				}
+			case <-r.done:
+				_, err := r.client.Revoke(context.Background(), r.leaseID)
+				log.Infof("lease revoked err=(%v)", err)
+				r.wg.Done()
+				return
+			}
+		}
+	}()
+
+	return nil
+}
+
+func (r *Registry) connectAndRegister() error {
+	var err error
+
+	// If we are reconnecting, cancel the previous connections
+	if r.cancelFunc != nil {
+		r.cancelFunc()
+	}
+
+	if r.cfg.Etcd == nil {
+		return errors.New("a valid *etcd.Config{} is required")
+	}
+
+	r.client, err = etcd.New(*r.cfg.Etcd)
+	if err != nil {
+		return errors.Wrapf(err, "failed to create Etcd client, cfg=%v", *r.cfg.Etcd)
+	}
+	r.ctx, r.cancelFunc = context.WithCancel(context.Background())
+
+	// Grant a new lease for this client instance
+	resp, err := r.client.Grant(r.ctx, int64(r.cfg.TTL.Seconds()))
+	if err != nil {
+		return errors.Wrapf(err, "failed to grant a new lease, cfg=%v", *r.cfg.Etcd)
+	}
+
+	// Keep the lease alive for as long as we live
+	r.keepAliveChan, err = r.client.KeepAlive(r.ctx, resp.ID)
+	if err != nil {
+		return errors.Wrapf(err, "failed to start keep alive, cfg=%v", *r.cfg.Etcd)
+	}
+	r.leaseID = resp.ID
+
 	if err := r.registerBackend(r.backendSpec); err != nil {
 		return errors.Wrapf(err, "failed to register backend, %s", r.backendSpec.ID)
 	}
-	r.wg.Add(1)
-	go r.heartbeat()
+
+	// Write our backend spec config
+	key := fmt.Sprintf(serverFmt, r.cfg.Namespace, r.backendSpec.AppName, r.backendSpec.ID)
+	_, err = r.client.Put(r.ctx, key, r.backendSpec.serverSpec(), etcd.WithLease(r.leaseID))
+	if err != nil {
+		return errors.Wrap(err, "failed to write backend spec")
+	}
 
 	for _, fes := range r.frontendSpecs {
 		if err := r.registerFrontend(fes); err != nil {
@@ -99,64 +172,43 @@ func (r *Registry) Start() error {
 }
 
 func (r *Registry) Stop() {
-	r.cancelFunc()
+	if r.cancelFunc != nil {
+		r.cancelFunc()
+	}
+	if r.once != nil {
+		r.once.Do(func() { close(r.done) })
+	}
 	r.wg.Wait()
 }
 
-func (r *Registry) heartbeat() {
-	defer r.wg.Done()
-	backendServerKey := fmt.Sprintf(serverFmt, r.cfg.Chroot, r.backendSpec.AppName, r.backendSpec.ID)
-	backendServerVal := r.backendSpec.serverSpec()
-	tick := time.NewTicker(r.cfg.TTL * 3 / 4)
-	for {
-		select {
-		case <-tick.C:
-			_, err := r.etcdKeysAPI.Set(r.ctx, backendServerKey, "",
-				&etcd.SetOptions{PrevExist: etcd.PrevExist, Refresh: true, TTL: r.cfg.TTL})
-			if err != nil {
-				log.Errorf("Server TTL refresh failed: err=(%v)", err)
-				_, err := r.etcdKeysAPI.Set(r.ctx, backendServerKey, backendServerVal,
-					&etcd.SetOptions{TTL: r.cfg.TTL})
-				if err != nil {
-					log.Errorf("Server create failed: err=(%v)", err)
-				}
-			}
-		case <-r.ctx.Done():
-			_, err := r.etcdKeysAPI.Delete(context.Background(), backendServerKey, nil)
-			log.Infof("Heartbeat stopped: err=(%v)", err)
-			return
-		}
-	}
-}
-
 func (r *Registry) registerBackend(bes *backendSpec) error {
-	betKey := fmt.Sprintf(backendFmt, r.cfg.Chroot, bes.AppName)
+	betKey := fmt.Sprintf(backendFmt, r.cfg.Namespace, bes.AppName)
 	betVal := bes.typeSpec()
-	_, err := r.etcdKeysAPI.Set(r.ctx, betKey, betVal, nil)
+	_, err := r.client.Put(r.ctx, betKey, betVal)
 	if err != nil {
 		return errors.Wrapf(err, "failed to set backend type, %s", betKey)
 	}
-	besKey := fmt.Sprintf(serverFmt, r.cfg.Chroot, bes.AppName, bes.ID)
+	besKey := fmt.Sprintf(serverFmt, r.cfg.Namespace, bes.AppName, bes.ID)
 	besVar := bes.serverSpec()
-	_, err = r.etcdKeysAPI.Set(r.ctx, besKey, besVar, &etcd.SetOptions{TTL: r.cfg.TTL})
+	_, err = r.client.Put(r.ctx, besKey, besVar, etcd.WithLease(r.leaseID))
 	return errors.Wrapf(err, "failed to set backend spec, %s", besKey)
 }
 
 func (r *Registry) registerFrontend(fes *frontendSpec) error {
-	fesKey := fmt.Sprintf(frontendFmt, r.cfg.Chroot, fes.Host, fes.ID)
+	fesKey := fmt.Sprintf(frontendFmt, r.cfg.Namespace, fes.Host, fes.ID)
 	fesVal := fes.spec()
-	_, err := r.etcdKeysAPI.Set(r.ctx, fesKey, fesVal, nil)
+	_, err := r.client.Put(r.ctx, fesKey, fesVal)
 	if err != nil {
 		return errors.Wrapf(err, "failed to set frontend spec, %s", fesKey)
 	}
 	for i, mw := range fes.Middlewares {
 		mw.Priority = i
-		mwKey := fmt.Sprintf(middlewareFmt, r.cfg.Chroot, fes.Host, fes.ID, mw.ID)
+		mwKey := fmt.Sprintf(middlewareFmt, r.cfg.Namespace, fes.Host, fes.ID, mw.ID)
 		mwVal, err := json.Marshal(mw)
 		if err != nil {
 			return errors.Wrapf(err, "failed to JSON middleware, %v", mw)
 		}
-		_, err = r.etcdKeysAPI.Set(r.ctx, mwKey, string(mwVal), nil)
+		_, err = r.client.Put(r.ctx, mwKey, string(mwVal))
 		if err != nil {
 			return errors.Wrapf(err, "failed to set middleware, %s", mwKey)
 		}
