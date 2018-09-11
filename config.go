@@ -35,7 +35,7 @@ func applyDefaults(cfg *AppConfig) error {
 	var err error
 
 	holster.SetDefault(&cfg.Vulcand, &vulcand.Config{})
-	cfg.Vulcand.Etcd, err = etcdutil.NewEtcdConfig(cfg.Vulcand.Etcd)
+	cfg.Vulcand.Etcd, err = etcdutil.NewConfig(cfg.Vulcand.Etcd)
 	if err != nil {
 		return errors.Wrap(err, "while creating new etcd config")
 	}

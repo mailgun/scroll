@@ -54,7 +54,7 @@
   name = "gopkg.in/check.v1"
 
 [[constraint]]
-  version = "v1.8.3"
+  version = "v1.9.0"
   name = "github.com/mailgun/holster"
 
 [prune]

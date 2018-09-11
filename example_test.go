@@ -34,7 +34,7 @@ func Example() {
 	os.Setenv("MG_ENV", "")
 
 	// Create a new etc config from available environment variables
-	cfg, err := etcdutil.NewEtcdConfig(nil)
+	cfg, err := etcdutil.NewConfig(nil)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "while creating etcd config: %s\n", err)
 		return
