@@ -85,8 +85,8 @@
     ".",
     "etcdutil"
   ]
-  revision = "b81e0ae9d0d90972444538a08f47758a48a2e0f4"
-  version = "v1.8.3"
+  revision = "0b3969c97ed870b5a54f61874cd5cf19d1502f9d"
+  version = "v1.9.0"
 
 [[projects]]
   branch = "master"
@@ -233,6 +233,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "8c05f94f54ed98ad9bca5ed5551151124e65636c5d18fe87524ddfc834a43842"
+  inputs-digest = "566bc98ee704779f844e06884f04ae2e4f217882c9adfb5ccbbf082c08a1ec2b"
   solver-name = "gps-cdcl"
   solver-version = 1
