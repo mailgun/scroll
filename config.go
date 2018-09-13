@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	etcd "github.com/coreos/etcd/clientv3"
@@ -85,7 +86,7 @@ func fetchEtcdConfig(cfg *AppConfig) error {
 	}
 
 	// Map the json config to our vulcand config
-	cfg.Vulcand.Namespace = jsonCfg.VulcandNamespace
+	cfg.Vulcand.Namespace = strings.TrimSuffix(jsonCfg.VulcandNamespace, "/")
 	cfg.PublicAPIHost = jsonCfg.PublicAPIHost
 	cfg.PublicAPIURL = jsonCfg.PublicAPIURL
 	cfg.ProtectedAPIHost = jsonCfg.ProtectedAPIHost
