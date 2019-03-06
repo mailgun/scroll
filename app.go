@@ -159,7 +159,7 @@ func (app *App) IsPublicRequest(request *http.Request) bool {
 	return request.Host == app.Config.PublicAPIHost
 }
 
-// Start the app on the configured host/port.
+// Run starts the app on the configured host/port.
 //
 // Supports graceful shutdown on 'kill' and 'int' signals.
 func (app *App) Run() error {

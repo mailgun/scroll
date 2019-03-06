@@ -9,7 +9,7 @@ import (
 	"github.com/mailgun/log"
 )
 
-// Retrieve a POST request field as a string.
+// GetStringField retrieves a POST request field as a string.
 // Returns `MissingFieldError` if requested field is missing.
 func GetStringField(r *http.Request, fieldName string) (string, error) {
 	if _, ok := r.Form[fieldName]; !ok {
@@ -18,7 +18,7 @@ func GetStringField(r *http.Request, fieldName string) (string, error) {
 	return r.FormValue(fieldName), nil
 }
 
-// Retrieves requested field as a string, allowSet provides input sanitization. If an
+// GetStringFieldSafe retrieves requested field as a string, allowSet provides input sanitization. If an
 // error occurs, returns either a `MissingFieldError` or an `UnsafeFieldError`.
 func GetStringFieldSafe(r *http.Request, fieldName string, allowSet AllowSet) (string, error) {
 	if _, ok := r.Form[fieldName]; !ok {
@@ -34,7 +34,7 @@ func GetStringFieldSafe(r *http.Request, fieldName string, allowSet AllowSet) (s
 	return fieldValue, nil
 }
 
-// Retrieve a POST request field as a string.
+// GetStringFieldWithDefault retrieves a POST request field as a string.
 // If the requested field is missing, returns provided default value.
 func GetStringFieldWithDefault(r *http.Request, fieldName, defaultValue string) string {
 	if fieldValue, err := GetStringField(r, fieldName); err == nil {
@@ -52,7 +52,7 @@ func init() {
 	multiParamRegex = regexp.MustCompile(`^([a-z:]*)\[\d*\]$`)
 }
 
-// Retrieve fields with the same name as an array of strings.
+// GetMultipleFields retrieves fields with the same name as an array of strings.
 func GetMultipleFields(r *http.Request, fieldName string) ([]string, error) {
 	var values = []string{}
 
@@ -70,7 +70,7 @@ func GetMultipleFields(r *http.Request, fieldName string) ([]string, error) {
 	return values, nil
 }
 
-// Retrieve a POST request field as an integer.
+// GetIntField retrieves a POST request field as an integer.
 // Returns `MissingFieldError` if requested field is missing.
 func GetIntField(r *http.Request, fieldName string) (int, error) {
 	stringField, err := GetStringField(r, fieldName)
@@ -84,7 +84,7 @@ func GetIntField(r *http.Request, fieldName string) (int, error) {
 	return intField, nil
 }
 
-// Retrieve a request field as a float.
+// GetFloatField retrieves a request field as a float.
 // Returns `MissingFieldError` if requested field is missing.
 func GetFloatField(r *http.Request, fieldName string) (float64, error) {
 	stringField, err := GetStringField(r, fieldName)
